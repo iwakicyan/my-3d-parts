@@ -29,3 +29,7 @@ Three.js 3Dパーツライブラリ
 - `lowpoly_torii01.js` — 鳥居・ローポリ・`createTorii()`
 - `lowpoly_lighthouse01.js` — 灯台・ローポリ・`createLighthouse()`
 - `lowpoly_windmill01.js` — 風車・ローポリ・`createWindmill()`・`update()` で羽根回転
+
+## workspace（作業台）
+
+- `index.html` — パーツ確認用の空の作業台・軸ポイント/地面/ライト付き・ドラッグ回転/ホイールズーム・`allMeshes` に追加したメッシュを HUD に一覧表示
