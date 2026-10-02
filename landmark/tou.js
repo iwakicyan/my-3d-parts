@@ -25,7 +25,7 @@ export function createTou(){
   const doorMat=new THREE.MeshStandardMaterial({color:0x6b5a50,roughness:0.7,flatShading:true});
   function add(geo,mat,x,y,z){
     const mesh=new THREE.Mesh(geo,mat);
-    mesh.position.set(x,y,z); mesh.castShadow=true; mesh.receiveShadow=true;
+    mesh.position.set(x,y,z); mesh.castShadow=true;  // 影は地面に落とすだけ。塔自身は受けない（低解像度の影マップで入り隅がガビガビになるため）
     group.add(mesh);
     return mesh;
   }
