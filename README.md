@@ -29,6 +29,7 @@ Three.js 3Dパーツライブラリ
 - `lowpoly_torii01.js` — 鳥居・ローポリ・`createTorii()`
 - `lowpoly_lighthouse01.js` — 灯台・ローポリ・`createLighthouse()`
 - `lowpoly_windmill01.js` — 風車・ローポリ・`createWindmill()`・`update()` で羽根回転
+- `tou.js` — 塔・`createTou()`・原点=底面中心・幅9m×高さ12.6m・`userData.footprint` 付き（形は workspace/tou.html と同じ）
 
 ## workspace（作業台）
 
