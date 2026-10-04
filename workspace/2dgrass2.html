@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2D Grass 2</title>
+</head>
+<body>
+<style>
+#eb-wrap { width: 100%; height: 480px; position: relative; border-radius: var(--border-radius-lg); overflow: hidden; background: #e4e8ec; }
+#eb-label { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.85); border-radius: 10px; padding: 8px 14px; font-size: 12px; color: #444; line-height: 1.8; font-family: sans-serif; pointer-events: none; min-width: 140px; }
+#eb-label .hud-title { font-size: 11px; color: #999; font-weight: bold; letter-spacing: 0.05em; }
+#eb-label .hud-list { margin: 2px 0 4px; }
+#eb-label .hud-hint { font-size: 11px; color: #aaa; }
+#eb-canvas { width: 100%; height: 100%; display: block; }
+#wf-btn { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: sans-serif; color: #444; }
+</style>
+<div id="eb-wrap">
+  <div id="eb-label">
+    <div class="hud-title">オブジェクト一覧</div>
+    <div class="hud-list" id="hud-list"><span style="color:#ccc">（なし）</span></div>
+    <div class="hud-hint">ドラッグで回転 / スクロールでズーム</div>
+  </div>
+  <button id="wf-btn">🔲 ワイヤーフレーム ON</button>
+  <canvas id="eb-canvas"></canvas>
+</div>
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script>
+(function() {
+
+const canvas = document.getElementById('eb-canvas');
+const wrap = document.getElementById('eb-wrap');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe4e8ec);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+
+function resize() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+const sun = new THREE.DirectionalLight(0xfff8f0, 0.6); sun.position.set(5,8,4); sun.castShadow=true; scene.add(sun);
+const fill = new THREE.DirectionalLight(0xd0e0ff, 0.4); fill.position.set(-4,2,-3); scene.add(fill);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshPhongMaterial({color:0xc8ccc8}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-5; ground.receiveShadow=true; scene.add(ground);
+
+const allMeshes=[];
+
+const GEO_NAMES={
+  IcosahedronGeometry:'二十面体', OctahedronGeometry:'八面体',
+  DodecahedronGeometry:'正十二面体', TetrahedronGeometry:'四面体',
+  TorusGeometry:'トーラス', TorusKnotGeometry:'トーラスノット',
+  ConeGeometry:'円錐', CylinderGeometry:'円柱',
+  SphereGeometry:'球', BoxGeometry:'直方体',
+  PlaneGeometry:'平面', BufferGeometry:'カスタム',
+};
+function getLabel(m){
+  if(m.name) return m.name;
+  if(!m.geometry) return m.type==='Group'?'グループ':m.type;
+  const base=GEO_NAMES[m.geometry.type]||m.geometry.type.replace('Geometry','');
+  return base+(m.userData.label?' '+m.userData.label:'');
+}
+const hudList=document.getElementById('hud-list');
+let _hudCount=-1;
+function updateHUD(){
+  _hudCount=allMeshes.length;
+  hudList.innerHTML=allMeshes.length
+    ?allMeshes.map(m=>`· ${getLabel(m)}`).join('<br>')
+    :'<span style="color:#ccc">（なし）</span>';
+}
+
+const posV=[],negV=[];
+for(let i=-10;i<=10;i++){const arr=i<0?negV:posV;arr.push(i,0,0);arr.push(0,i,0);arr.push(0,0,i);}
+const axPosGeo=new THREE.BufferGeometry();
+axPosGeo.setAttribute('position',new THREE.Float32BufferAttribute(posV,3));
+scene.add(new THREE.Points(axPosGeo,new THREE.PointsMaterial({color:0x000000,size:4,sizeAttenuation:false})));
+const axNegGeo=new THREE.BufferGeometry();
+axNegGeo.setAttribute('position',new THREE.Float32BufferAttribute(negV,3));
+scene.add(new THREE.Points(axNegGeo,new THREE.PointsMaterial({color:0x5070D0,size:4,sizeAttenuation:false})));
+
+let dragging=false,prevX=0,prevY=0,theta=0.5,phi=0.3,R_val=16.0;
+const tgt=new THREE.Vector3(0,0,0);
+const updateCam=()=>{
+  camera.position.set(tgt.x+R_val*Math.sin(theta)*Math.cos(phi),tgt.y+R_val*Math.sin(phi),tgt.z+R_val*Math.cos(theta)*Math.cos(phi));
+  camera.lookAt(tgt);
+};
+updateCam();
+
+canvas.addEventListener("mousedown",e=>{dragging=true;prevX=e.clientX;prevY=e.clientY;});
+window.addEventListener("mouseup",()=>dragging=false);
+window.addEventListener("mousemove",e=>{if(!dragging)return;theta-=(e.clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.clientY-prevY)*0.007));prevX=e.clientX;prevY=e.clientY;updateCam();});
+canvas.addEventListener("touchstart",e=>{dragging=true;prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;},{passive:true});
+window.addEventListener("touchend",()=>dragging=false);
+window.addEventListener("touchmove",e=>{if(!dragging)return;theta-=(e.touches[0].clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.touches[0].clientY-prevY)*0.007));prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;updateCam();},{passive:true});
+canvas.addEventListener("wheel",e=>{R_val=Math.max(6,Math.min(60,R_val+e.deltaY*0.02));updateCam();},{passive:true});
+
+let wireframe=false;
+const wfBtn=document.getElementById('wf-btn');
+function applyWireframe(obj){
+  obj.traverse(o=>{
+    if(!o.isMesh)return;
+    (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if('wireframe' in m)m.wireframe=wireframe;});
+  });
+}
+wfBtn.addEventListener('click',()=>{
+  wireframe=!wireframe;
+  allMeshes.forEach(applyWireframe);
+  wfBtn.textContent=wireframe?'🔲 ワイヤーフレーム OFF':'🔲 ワイヤーフレーム ON';
+});
+
+// 作業台にオブジェクトを置く（シーン追加 + 一覧登録 + ワイヤーフレーム状態反映）
+function addObject(obj){
+  scene.add(obj);
+  allMeshes.push(obj);
+  applyWireframe(obj);
+  return obj;
+}
+function removeObject(obj){
+  scene.remove(obj);
+  const i=allMeshes.indexOf(obj);
+  if(i>=0)allMeshes.splice(i,1);
+}
+window.workspace={scene,addObject,removeObject,allMeshes,THREE};
+
+// ===== 草（parts/2dgrass2.js と同じ） =====
+// 板の輪郭（手描きラフの座標をそのまま使う。単位 px・y は下向き）。UV は各板の外接矩形で 0〜1 に正規化
+const PX = 1 / 600; // 600px = 1
+const SHAPES = [
+  [[40, 540], [65, 415], [240, 325], [393, 535]],                                         // 左：ずんぐりした四角形
+  [[455, 580], [357, 410], [392, 297], [515, 440], [582, 285], [752, 240], [730, 408]], // 中：V字の切れ込み
+  [[795, 150], [965, 395], [963, 605], [780, 488]],                                      // 右：縦長
+];
+
+// 各板の配置（角度・横ずれ・傾き・沈み・大きさ）。ここをいじると房の表情が変わる
+// sink：一番低い点を地面からどれだけ沈めるか。傾けても根元が浮かないようにする
+const DEG = Math.PI / 180;
+const PLACEMENTS = [
+  { angle: 0,         ox: -0.02, oz: -0.20, tiltX: 0,         tiltZ: 0,          sink: 0.10, scale: 1.5 },
+  { angle: 95 * DEG,  ox: 0.05,  oz: -0.05, tiltX: -8 * DEG,  tiltZ: 10 * DEG,  sink: 0.10, scale: 1.2 },
+  { angle: 160 * DEG, ox: 0.14,  oz: 0.08,  tiltX: 10 * DEG,  tiltZ: 8 * DEG,   sink: 0.22 }, // 底辺が斜めなので深め
+];
+
+// 1房ぶんのジオメトリ（15頂点・インデックス付き）
+function createGrass2TuftGeometry() {
+  const pos = [], uv = [], idx = [];
+  let base = 0;
+
+  SHAPES.forEach((pts, i) => {
+    const { angle, ox, oz, tiltX = 0, tiltZ = 0, sink = 0, scale = 1 } = PLACEMENTS[i];
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const tilt = new THREE.Euler(tiltX, 0, tiltZ); // 根元を支点にX軸・Z軸で傾ける
+    const p = new THREE.Vector3();
+
+    const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const cx = (minX + maxX) / 2;
+
+    for (const [px, py] of pts) {
+      p.set((px - cx) * PX * scale, (maxY - py) * PX * scale - sink, 0).applyEuler(tilt); // 板の中央下を原点に
+      pos.push(p.x * c + p.z * s + ox, p.y, -p.x * s + p.z * c + oz);    // Y軸回転＋オフセット
+      uv.push((px - minX) / (maxX - minX), (maxY - py) / (maxY - minY));
+    }
+    // 凹んだ形（中の板）もあるので耳刈りで三角形分割
+    const tris = THREE.ShapeUtils.triangulateShape(pts.map(([x, y]) => new THREE.Vector2(x, -y)), []);
+    for (const t of tris) idx.push(base + t[0], base + t[1], base + t[2]);
+    base += pts.length;
+  });
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+// 64x64のテクスチャ画像（PNGをdata URIで埋め込み。パーツ単体で完結させるため）
+const GRASS2_TEX_URL = 'data:image/png;base64,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';
+function createGrass2Texture() {
+  const tex = new THREE.TextureLoader().load(GRASS2_TEX_URL);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  return tex;
+}
+
+// 草のマテリアル：テクスチャ自身を発光にも使い、光が当たらない面でも暗くなりすぎないようにする
+function createGrass2Material() {
+  const tex = createGrass2Texture();
+  return new THREE.MeshLambertMaterial({
+    map: tex,
+    emissive: 0xffffff,
+    emissiveMap: tex,
+    emissiveIntensity: 0.6,
+    side: THREE.DoubleSide,
+  });
+}
+
+// 1房（原点 = 根元の中心・地面 y=0、地上の高さ約0.7。y<0 は地面にめり込ませる部分）
+function create2DGrass2() {
+  const mesh = new THREE.Mesh(createGrass2TuftGeometry(), createGrass2Material());
+  mesh.name = '2dgrass2';
+  return mesh;
+}
+
+// 敷き詰め用InstancedMesh（positions: THREE.Vector3[]）
+function create2DGrass2Field(positions) {
+  const mat = createGrass2Material();
+  const mesh = new THREE.InstancedMesh(createGrass2TuftGeometry(), mat, positions.length);
+
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const up = new THREE.Vector3(0, 1, 0);
+  const sc = new THREE.Vector3();
+
+  positions.forEach((p, i) => {
+    q.setFromAxisAngle(up, Math.random() * Math.PI * 2); // 向きはランダム
+    const k = 0.8 + Math.random() * 0.5;                 // 大きさも少しランダム
+    m.compose(p, q, sc.set(k, k, k));
+    mesh.setMatrixAt(i, m);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  return mesh;
+}
+
+// ===== 配置 =====
+// 形の確認用：1房を 6 倍で中央に置く
+const tuft=create2DGrass2();
+tuft.scale.setScalar(6); tuft.name='草1房（×6）';
+addObject(tuft);
+
+resize();
+window.addEventListener("resize",resize);
+(function animate(){requestAnimationFrame(animate);renderer.render(scene,camera);if(allMeshes.length!==_hudCount)updateHUD();})();
+
+})();
+</script>
+</body>
+</html>

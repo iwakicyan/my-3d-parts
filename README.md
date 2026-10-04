@@ -12,6 +12,7 @@ Three.js 3Dパーツライブラリ
 - `lowpoly_rock01.js` — 岩・ローポリ・`createRock01Group(seed)`
 - `lowpoly-grass1.jsx` — 草・ローポリ・`createLowpolyGrass1()`
 - `2dgrass.js` — 板ポリ草の房・`create2DGrass()` / `create2DGrassField(positions)`（InstancedMesh）・山1つ/2つ/3つの板3枚を10°ずつ傾けて束ねる・原点=根元の中心・下部は地面にめり込ませて使う・テクスチャはPNGをdata URIで内蔵（形は workspace/2dgrass.html と同じ）
+- `2dgrass2.js` — 板ポリ草の房その2・`create2DGrass2()` / `create2DGrass2Field(positions)`（InstancedMesh）・手描きラフの板3枚（ずんぐり四角形1.5倍・V字1.2倍・縦長）を角度をつけて束ねる・原点=根元の中心・下端は地面にめり込ませて使う・テクスチャはPNGをdata URIで内蔵（形は workspace/2dgrass2.html と同じ）
 - `DeadTree01.jsx` — 枯れ木・`createDeadTree(scale)`
 - `GLeaf01.jsx` — 葉・`createGLeaf(scale, color)`
 - `field01.jsx` — 草地フィールド・`createField01()`
@@ -40,3 +41,4 @@ Three.js 3Dパーツライブラリ
 - `tou.html` — 作業台ベースの塔・`createTou()`・3x3 グリッドの基壇（角は低く辺の中央は高い）+ 帯状の板 + 円筒 + 円錐屋根（12分割）・角の切り欠きに対角線上の両開き扉
 - `treehouse.html` — 作業台ベースのツリーハウス・`createTreehouse()`・ローポリの木（六角柱の幹・地面に潜る根・正二十面体/正八面体の葉、半数ちょっと黄緑寄り）+ 真ん中で折れて別々の角度を向く2部屋（窓・扉・急勾配の赤屋根）+ 扉に立てかけたはしご
 - `2dgrass.html` — 作業台ベースの板ポリ草・`create2DGrass()`・1房を6倍で中央に表示
+- `2dgrass2.html` — 作業台ベースの板ポリ草その2・`create2DGrass2()`・1房を6倍で中央に表示
