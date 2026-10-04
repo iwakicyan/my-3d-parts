@@ -65,8 +65,13 @@ export function createKanban(){
       diff(below,above).forEach(([x0,x1])=>quad(P(x0,y,z1),P(x1,y,z1),P(x1,y,z0),P(x0,y,z0)));   // 上向き
       diff(above,below).forEach(([x0,x1])=>quad(P(x0,y,z0),P(x1,y,z0),P(x1,y,z1),P(x0,y,z1)));   // 下向き
     });
+    // UV は正面から見た x,y を板の外接矩形で 0〜1 に正規化（黒板に表示用のテクスチャを貼れるように）
+    const xs=pos.filter((_,i)=>i%3===0), xMin=Math.min(...xs), xMax=Math.max(...xs);
+    const uv=[];
+    for(let i=0;i<pos.length;i+=3)uv.push((pos[i]-xMin)/(xMax-xMin),(pos[i+1]-y0)/(y1-y0));
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
     geo.computeVertexNormals();   // 頂点を共有しないので帯ごとにフラットな陰影になる
     const mesh=new THREE.Mesh(geo,mat);
     mesh.castShadow=true;  // 自分の影は受けない（薄い板だと影マップのアクネで表面がまだらになるため）
@@ -81,7 +86,8 @@ export function createKanban(){
 
   // 黒板
   const B=BOARD;
-  slab(B.y0,B.y1,T/2,T/2+B.t,()=>[[B.x0,B.x1]],boardMat);
+  const board=slab(B.y0,B.y1,T/2,T/2+B.t,()=>[[B.x0,B.x1]],boardMat);
+  group.userData.board=board;   // 黒板のメッシュ（表示を貼るときに使う）
 
   group.userData.footprint={halfW:W/2,halfD:BOW+T/2+BOARD.t};  // 当たり判定用（ローカル XZ の矩形。弓なりの出っ張りまで含める）
   return group;
