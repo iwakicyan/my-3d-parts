@@ -34,6 +34,7 @@ Three.js 3Dパーツライブラリ
 - `tou.js` — 塔・`createTou()`・原点=底面中心・幅9m×高さ12.6m・`userData.footprint` 付き（形は workspace/tou.html と同じ）
 - `treehouse.js` — ツリーハウス・`createTreehouse()`・原点=幹の根元・高さ約11m・`userData.footprint` は幹のまわりのみ（形は workspace/treehouse.html と同じ）
 - `kanban.js` — 看板・`createKanban()`・原点=脚の間の中心・高さ1.2m・表(+z)に黒板、中央が前へ出る弓なり・`userData.footprint` 付き・`userData.board` が黒板のメッシュ（UV は正面に 0〜1。表示を貼る用）（形は workspace/kanban.html と同じ）
+- `saku_1.js` — 柵・`createSaku1({spans})` / `createSaku1Corner({spansA, spansB})`・原点=端（角）の杭の根元・杭の高さ1.1m・間隔1.2m（`SAKU1.SPAN`）・横板2段が杭の真ん中を貫通・角はL字で横板が角で重なりはみ出しなし（形は workspace/saku.html と同じ）
 
 ## workspace（作業台）
 
