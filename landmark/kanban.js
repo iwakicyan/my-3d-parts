@@ -47,14 +47,15 @@ export function createKanban(){
     const ys=[...new Set([y0,y1,...extra,...KNOTS].filter(y=>y>=y0&&y<=y1))].sort((a,b)=>a-b);
     const pos=[];
     const P=(x,y,z)=>[x,y,z+zOff(y)];
-    const quad=(a,b,c,d)=>pos.push(...a,...b,...c,...a,...c,...d);   // 外から見て反時計回り
+    const face=[];   // 頂点ごとの面の向き（+1: 表 / -1: 裏 / 0: 側面・蓋）。表裏だけ陰影をなめらかにする
+    const quad=(a,b,c,d,f=0)=>{pos.push(...a,...b,...c,...a,...c,...d); for(let k=0;k<6;k++)face.push(f);};   // 外から見て反時計回り
     const bands=[];
     for(let i=0;i<ys.length-1;i++)bands.push(spans((ys[i]+ys[i+1])/2));
     bands.forEach((ivs,i)=>{
       const ya=ys[i], yb=ys[i+1];
       ivs.forEach(([x0,x1])=>{
-        quad(P(x0,ya,z1),P(x1,ya,z1),P(x1,yb,z1),P(x0,yb,z1));   // +z 面
-        quad(P(x0,ya,z0),P(x0,yb,z0),P(x1,yb,z0),P(x1,ya,z0));   // -z 面
+        quad(P(x0,ya,z1),P(x1,ya,z1),P(x1,yb,z1),P(x0,yb,z1),1);    // +z 面
+        quad(P(x0,ya,z0),P(x0,yb,z0),P(x1,yb,z0),P(x1,ya,z0),-1);   // -z 面
         quad(P(x1,ya,z1),P(x1,ya,z0),P(x1,yb,z0),P(x1,yb,z1));   // 右側面
         quad(P(x0,ya,z0),P(x0,ya,z1),P(x0,yb,z1),P(x0,yb,z0));   // 左側面
       });
@@ -73,6 +74,13 @@ export function createKanban(){
     geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
     geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
     geo.computeVertexNormals();   // 頂点を共有しないので帯ごとにフラットな陰影になる
+    // 表裏は、折れ線ではなく元の放物線 z=BOW*(1-u²) の傾きから法線を作る → 継ぎ目の角が陰影に出ず、なめらかな曲面に見える
+    const nrm=geo.attributes.normal;
+    for(let i=0;i<face.length;i++){
+      if(!face[i])continue;
+      const u=2*pos[i*3+1]/H-1, s=4*BOW*u/H, l=Math.hypot(s,1);   // 表の法線 (0, -dz/dy, 1)
+      nrm.setXYZ(i,0,face[i]*s/l,face[i]/l);
+    }
     const mesh=new THREE.Mesh(geo,mat);
     mesh.castShadow=true;  // 自分の影は受けない（薄い板だと影マップのアクネで表面がまだらになるため）
     mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,25),lineMat));   // 折れ目は緩い角なので線にならない
