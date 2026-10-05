@@ -147,8 +147,9 @@ const KAIDAN={
 };
 const kaidanMat=new THREE.MeshStandardMaterial({color:0x9c9d9a,roughness:0.95});
 const kaidanDoorMat=new THREE.MeshStandardMaterial({color:0x3a3d42,roughness:0.8});
+const kaidanLineMat=new THREE.LineBasicMaterial({color:0x111214});
 
-// メッシュ（輪郭線なし）
+// メッシュ（輪郭線は階段状の角だけ別に引く）
 function kaidanMesh(geo,mat){
   const mesh=new THREE.Mesh(geo,mat);
   mesh.castShadow=true;   // 自分の影は受けない（看板・柵と同じ）
@@ -191,6 +192,16 @@ function createKaidanPalace(){
   // 1段目は地面まで（正面は閉じている）、背面は空洞が開く
   const shell=outer.concat(inner);
   group.add(kaidanMesh(kaidanExtrude(shell,0,W),kaidanMat));
+
+  // 階段状の角だけ輪郭線を引く：段の角を幅いっぱいに横切る線と、左右の側面の階段の形
+  const steps=outer.slice(1,1+2*n);   // 1段目の前の上端 〜 最上段の後ろの上端
+  const at=([s,y],x)=>[x-W/2,y,D/2-s];
+  const lv=[];
+  steps.forEach(p=>lv.push(...at(p,0),...at(p,W)));
+  for(let i=0;i<steps.length-1;i++)[0,W].forEach(x=>lv.push(...at(steps[i],x),...at(steps[i+1],x)));
+  const lineGeo=new THREE.BufferGeometry();
+  lineGeo.setAttribute('position',new THREE.Float32BufferAttribute(lv,3));
+  group.add(new THREE.LineSegments(lineGeo,kaidanLineMat));
 
   // 空洞の左右の壁（空洞の輪郭を壁の厚みだけ押し出す）
   const hollow=[[front[1]+K.LAP,0]];

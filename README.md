@@ -35,7 +35,7 @@ Three.js 3Dパーツライブラリ
 - `treehouse.js` — ツリーハウス・`createTreehouse()`・原点=幹の根元・高さ約11m・`userData.footprint` は幹のまわりのみ（形は workspace/treehouse.html と同じ）
 - `kanban.js` — 看板・`createKanban()`・原点=脚の間の中心・高さ1.2m・表(+z)に黒板、中央が前へ出る弓なり・`userData.footprint` 付き・`userData.board` が黒板のメッシュ（UV は正面に 0〜1。表示を貼る用）（形は workspace/kanban.html と同じ）
 - `saku_1.js` — 柵・`createSaku1({spans})` / `createSaku1Corner({spansA, spansB})`・原点=端（角）の杭の根元・杭の高さ1.1m・間隔1.2m（`SAKU1.SPAN`）・横板2段が杭の真ん中を貫通・角はL字で横板が角で重なりはみ出しなし（形は workspace/saku.html と同じ）
-- `kaidan_palace.js` — 階段の館・`createKaidanPalace()`・原点=底面の中心・+z が正面（低い側）・高さ3m×幅3.6m×奥行き4.7m・3段の板を重ねた階段形で下は空洞（背面が開く）・四隅に円筒の柱・`userData.footprint` 付き（形は workspace/kaidan_palace.html と同じ）
+- `kaidan_palace.js` — 階段の館・`createKaidanPalace()`・原点=底面の中心・+z が正面（低い側）・高さ3m×幅3.6m×奥行き4.7m・3段の板を重ねた階段形で下は空洞（背面が開く）・四隅に円筒の柱・輪郭線は階段状の角だけ・`userData.footprint` 付き（形は workspace/kaidan_palace.html と同じ）
 
 ## workspace（作業台）
 
@@ -47,4 +47,4 @@ Three.js 3Dパーツライブラリ
 - `2dgrass2.html` — 作業台ベースの板ポリ草その2・`create2DGrass2()`・1房を6倍で中央に表示
 - `kanban.html` — 作業台ベースの看板・`createKanban()`・二本脚の板看板（実寸 高さ1.2m）を6倍で表示・弓なりの凸側(+z)が表で黒板・板の継ぎ目8本をメッシュの辺にしてそこで折り、中央が前(+z)へ出る弓なり（表裏の陰影は元の曲線から法線を作るので、継ぎ目の角は見えずなめらか）・黒い輪郭線付き
 - `saku.html` — 作業台ベースの柵・`createSaku({spans})` / `createSakuCorner({spansA, spansB})`・細い角柱の杭（実寸 高さ1.1m・間隔1.2m）の真ん中を厚い横板2段が貫通し、杭の頭は上の板より上に出る・横板は端の杭からはみ出す・角は両側の横板が角の杭を貫通して重なり、外へのはみ出しは切り揃えたL字・3倍で直線と角を並べて表示・濃い紺の輪郭線付き
-- `kaidan_palace.html` — 作業台ベースの階段の館・`createKaidanPalace()`・3段の階段の形の建物（実寸 高さ3m・幅3.6m・奥行き4.7m）を2倍で表示・段は厚い板を前から重ねた形で、下は空洞・背面が開き左右に壁・四隅に円筒の柱（角から少し内側・前2本は1段目の高さ、後ろ2本は最上段の高さ）・1段目の正面に小さな暗い両開き扉・コンクリート色・輪郭線なし
+- `kaidan_palace.html` — 作業台ベースの階段の館・`createKaidanPalace()`・3段の階段の形の建物（実寸 高さ3m・幅3.6m・奥行き4.7m）を2倍で表示・段は厚い板を前から重ねた形で、下は空洞・背面が開き左右に壁・四隅に円筒の柱（角から少し内側・前2本は1段目の高さ、後ろ2本は最上段の高さ）・1段目の正面に小さな暗い両開き扉・コンクリート色・輪郭線は階段状の角（段を横切る線と側面の階段形）だけ
