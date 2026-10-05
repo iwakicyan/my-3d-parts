@@ -185,5 +185,6 @@ export function createTreehouse(){
   group.add(ladder);
 
   group.userData.footprint={halfW:1.2,halfD:1.2};  // 当たり判定用（幹のまわりだけ。部屋は頭上なので下をくぐれる）
+  group.userData.doorPanel=door;   // 左の部屋の扉の板（BoxGeometry）。ゲーム側で光らせる用（userData.door はゲーム側で「入れるドア」の印なので別の名前）
   return group;
 }
