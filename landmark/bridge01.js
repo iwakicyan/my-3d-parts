@@ -7,7 +7,7 @@ import * as THREE from 'three';
 // 歩く向きは軸と直角（z）で、円柱のアーチを乗り越える。円柱と円錐の境目（アーチ形の縁）の少し内側に沿って、四角柱の棒を円柱の面に垂直に（x 軸まわりだけ傾けて）並べ、先端に正十二面体を付ける（地面に入るところまで）
 // 昇り降りするところ（z の両端、円柱の面が地面に入るところ）に、橋と同じ色の高さ 50cm のステップを置く（幅は両側の柱の列より内側）
 // 原点 = 地面の高さで、橋の真ん中。単位 1 = 1m
-// cut・stepSink: 削る高さとステップを沈める量（水の上に架けるときは水面より下まで残す）
+// cut・stepSink: 削る高さとステップを沈める量（水の上に架けるときは水面より下まで残す）。cut:'axis' で軸の高さ（下半分を削る）
 const BRIDGE01={
   R:5.0,          // 円柱の半径
   CYL_L:6.0,      // 円柱の長さ
@@ -42,13 +42,13 @@ function bridgeMesh(geo){
   return mesh;
 }
 
-// 三角形の3頂点がすべて yCut より下にある面を消す（地面の下で見えない部分を削る）
+// 三角形の3頂点がすべて yCut 以下にある面を消す（地面の下で見えない部分を削る。yCut を軸の高さにすると、先端が軸上にある円錐の下半分も消える）
 function bridgeCrop(geo,yCut){
   const src=geo.index?geo.toNonIndexed():geo;
   const pos=src.attributes.position, uv=src.attributes.uv;
   const keepPos=[], keepUv=[];
   for(let t=0;t<pos.count;t+=3){
-    if(Math.max(pos.getY(t),pos.getY(t+1),pos.getY(t+2))<yCut)continue;
+    if(Math.max(pos.getY(t),pos.getY(t+1),pos.getY(t+2))<=yCut+1e-6)continue;
     for(let k=t;k<t+3;k++){
       keepPos.push(pos.getX(k),pos.getY(k),pos.getZ(k));
       if(uv)keepUv.push(uv.getX(k),uv.getY(k));
@@ -67,6 +67,7 @@ export function createBridge01({cut=BRIDGE01.CUT,stepSink=BRIDGE01.STEP.SINK}={}
   group.name='橋';
 
   const cy=B.ABOVE-B.R*Math.cos(Math.PI/B.SEG);   // 軸の高さ。平らな上面が地面から ABOVE の高さに来るよう、地面の下へ
+  if(cut==='axis')cut=cy;
   // 円柱・円錐はもともと軸が y。平らな面を真上に向けるため、軸のまわりに半分の分割角だけ回してから寝かせ（+y → +x）、
   // 軸の高さへ下ろして、地面の下に収まる面を削る
   const place=(geo,x)=>{
