@@ -241,6 +241,7 @@ function createBridge01({cut=BRIDGE01.CUT,stepSink=BRIDGE01.STEP.SINK}={}){
 
   // --- 縁の柱（円柱と円錐の境目のアーチに沿って） ---
   const P=B.POST, a=Math.PI/B.SEG;
+  const rails=[];   // 柱の列に沿った手すりの当たり判定（userData.footprint を持つ Object3D）。userData.rails で渡す
   const xE=B.CYL_L/2;   // 円柱の端（円錐との境目）の x
   // 断面の頂点：上から角度 phi（上面の縁が ±a、その隣が ±3a …）
   const ring=(sx,phi)=>new THREE.Vector3(sx*xE,cy+B.R*Math.cos(phi),B.R*Math.sin(phi));
@@ -282,10 +283,18 @@ function createBridge01({cut=BRIDGE01.CUT,stepSink=BRIDGE01.STEP.SINK}={}){
       const sg=segs[k];
       addPost(sg.a.clone().lerp(sg.b,Math.min(d/lens[k],1)),sg.tilt);
     }
+    // 手すり: 柱の列が立つ z の範囲を、柱の太さの細い矩形で覆う
+    const zMax=Math.max(...segs.flatMap(sg=>[Math.abs(sg.a.z),Math.abs(sg.b.z)]));
+    const rail=new THREE.Object3D();
+    rail.position.set(sx*(xE-P.INSET),0,0);
+    rail.userData.footprint={halfW:P.ROD_W/2,halfD:zMax};
+    group.add(rail);
+    rails.push(rail);
   });
 
   const halfL=B.CYL_L/2+B.CONE_L;
   group.userData.walkable=walkable;   // 地表と同じように上に立てるメッシュ（ゲーム側で地面の高さのレイキャストに加える）
+  group.userData.rails=rails;         // 手すり（両側の柱の列）の当たり判定。ゲーム側で当たり判定に加える
   group.userData.footprint={halfW:halfL,halfD:B.R};   // 当たり判定用（ローカル XZ の矩形。地面の下も含めた外形）
   return group;
 }

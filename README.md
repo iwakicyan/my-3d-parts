@@ -37,7 +37,7 @@ Three.js 3Dパーツライブラリ
 - `saku_1.js` — 柵・`createSaku1({spans})` / `createSaku1Corner({spansA, spansB})`・原点=端（角）の杭の根元・杭の高さ1.1m・間隔1.2m（`SAKU1.SPAN`）・横板2段が杭の真ん中を貫通・角はL字で横板が角で重なりはみ出しなし（形は workspace/saku.html と同じ）
 - `kaidan_palace.js` — 階段の館・`createKaidanPalace()`・原点=底面の中心・+z が正面（低い側）・高さ3m×幅3.6m×奥行き4.7m・3段の板を重ねた階段形で下は空洞（背面が開く）・四隅に円筒の柱・輪郭線は階段状の角だけ・`userData.footprint` 付き（形は workspace/kaidan_palace.html と同じ）
 - `easel.js` — イーゼル・`createEasel({image})`・原点=足元の中心・+z が正面・高さ1.7m・前の脚2本＋中央のマスト＋後ろの脚・棚に絵を貼ったキャンバスを立てかける（image で絵を差し替え、null でキャンバスなし。`userData.canvas` がキャンバスのメッシュ）・`userData.footprint` 付き（形は workspace/easel.html と同じ）
-- `bridge01.js` — 橋・`createBridge01({cut, stepSink})`（水の上に架けるときは削る高さ・ステップを沈める量を水面より下に。既定の `cut:'axis'` は軸より下の半分を削る）・原点=地面の高さで橋の真ん中・円柱（軸=x）の両端に円錐を付けた形の上2mだけを出し、歩く向きは z（円柱のアーチを乗り越える）・アーチの縁に先端が正十二面体の棒・z の両端に高さ50cmのステップ・軸（円錐の先端の高さ）より下の半分は削ってある・`userData.walkable` に上を歩けるメッシュ（本体とステップ）・`userData.footprint` 付き（形は workspace/bridge01.html と同じ）
+- `bridge01.js` — 橋・`createBridge01({cut, stepSink})`（水の上に架けるときは削る高さ・ステップを沈める量を水面より下に。既定の `cut:'axis'` は軸より下の半分を削る）・原点=地面の高さで橋の真ん中・円柱（軸=x）の両端に円錐を付けた形の上2mだけを出し、歩く向きは z（円柱のアーチを乗り越える）・アーチの縁に先端が正十二面体の棒・z の両端に高さ50cmのステップ・軸（円錐の先端の高さ）より下の半分は削ってある・`userData.walkable` に上を歩けるメッシュ（本体とステップ）・`userData.rails` に両側の柱の列に沿った手すりの当たり判定（`userData.footprint` を持つ Object3D）・`userData.footprint` 付き（形は workspace/bridge01.html と同じ）
 
 ## workspace（作業台）
 
