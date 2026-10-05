@@ -138,6 +138,7 @@ window.workspace={scene,addObject,removeObject,allMeshes,THREE};
 // 歩く向きは軸と直角（z）で、円柱のアーチを乗り越える。円柱と円錐の境目（アーチ形の縁）の少し内側に沿って、四角柱の棒を円柱の面に垂直に（x 軸まわりだけ傾けて）並べ、先端に正十二面体を付ける（地面に入るところまで）
 // 昇り降りするところ（z の両端、円柱の面が地面に入るところ）に、橋と同じ色の高さ 50cm のステップを置く（幅は両側の柱の列より内側）
 // 原点 = 地面の高さで、橋の真ん中。単位 1 = 1m
+// cut・stepSink: 削る高さとステップを沈める量（水の上に架けるときは水面より下まで残す）
 const BRIDGE01={
   R:5.0,          // 円柱の半径
   CYL_L:6.0,      // 円柱の長さ
@@ -191,7 +192,7 @@ function bridgeCrop(geo,yCut){
   return out;
 }
 
-function createBridge01(){
+function createBridge01({cut=BRIDGE01.CUT,stepSink=BRIDGE01.STEP.SINK}={}){
   const B=BRIDGE01;
   const group=new THREE.Group();
   group.name='橋';
@@ -203,7 +204,7 @@ function createBridge01(){
     geo.rotateY(Math.PI/B.SEG);
     geo.rotateZ(-Math.PI/2);
     geo.translate(x,cy,0);
-    return bridgeCrop(geo,B.CUT);
+    return bridgeCrop(geo,cut);
   };
   const walkable=[];   // 上を歩ける面（本体とステップ）。userData.walkable で渡す
   const addBody=mesh=>{ group.add(mesh); walkable.push(mesh); };
@@ -228,10 +229,10 @@ function createBridge01(){
       }
     }
     const W=2*(B.CYL_L/2-B.POST.INSET-B.POST.ROD_W/2-S.GAP);   // 柱の列の内側どうしからすき間ぶん狭く
-    const geo=new THREE.BoxGeometry(W,S.H+S.SINK,S.IN+S.D);
+    const geo=new THREE.BoxGeometry(W,S.H+stepSink,S.IN+S.D);
     [1,-1].forEach(sz=>{
       const step=new THREE.Mesh(geo,bridgeMat);
-      step.position.set(0,(S.H-S.SINK)/2,sz*(zH+(S.D-S.IN)/2));
+      step.position.set(0,(S.H-stepSink)/2,sz*(zH+(S.D-S.IN)/2));
       step.castShadow=true;
       addBody(step);
     });
