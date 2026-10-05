@@ -74,11 +74,13 @@ export function createBridge01(){
     geo.translate(x,cy,0);
     return bridgeCrop(geo,B.CUT);
   };
-  group.add(bridgeMesh(place(new THREE.CylinderGeometry(B.R,B.R,B.CYL_L,B.SEG,1,true),0)));
+  const walkable=[];   // 上を歩ける面（本体とステップ）。userData.walkable で渡す
+  const addBody=mesh=>{ group.add(mesh); walkable.push(mesh); };
+  addBody(bridgeMesh(place(new THREE.CylinderGeometry(B.R,B.R,B.CYL_L,B.SEG,1,true),0)));
   [1,-1].forEach(side=>{
     const geo=new THREE.ConeGeometry(B.R,B.CONE_L,B.SEG,1,true);   // 先端が +y（寝かせると +x）
     if(side<0)geo.rotateZ(Math.PI);                                // 先端を -y（寝かせると -x）へ
-    group.add(bridgeMesh(place(geo,side*(B.CYL_L/2+B.CONE_L/2))));
+    addBody(bridgeMesh(place(geo,side*(B.CYL_L/2+B.CONE_L/2))));
   });
 
   // --- 昇り降りのステップ（z の両端） ---
@@ -100,7 +102,7 @@ export function createBridge01(){
       const step=new THREE.Mesh(geo,bridgeMat);
       step.position.set(0,(S.H-S.SINK)/2,sz*(zH+(S.D-S.IN)/2));
       step.castShadow=true;
-      group.add(step);
+      addBody(step);
     });
   }
 
@@ -150,6 +152,7 @@ export function createBridge01(){
   });
 
   const halfL=B.CYL_L/2+B.CONE_L;
+  group.userData.walkable=walkable;   // 地表と同じように上に立てるメッシュ（ゲーム側で地面の高さのレイキャストに加える）
   group.userData.footprint={halfW:halfL,halfD:B.R};   // 当たり判定用（ローカル XZ の矩形。地面の下も含めた外形）
   return group;
 }
