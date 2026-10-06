@@ -109,6 +109,7 @@ export function createCoinbox(){
   slotGeo.computeVertexNormals();
   face.add(coinboxMesh(slotGeo,coinboxSlotMat,false));
 
+  group.userData.slot=face;   // 投入口（円盤とスロット）。ローカル +z が面の法線、+y がスロットの向き、原点が投入口の中心
   group.userData.footprint={halfW:B.w/2,halfD:B.d/2};  // 当たり判定用（ローカル XZ の矩形）
   return group;
 }
