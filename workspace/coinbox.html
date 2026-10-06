@@ -145,7 +145,7 @@ const COINBOX={
 };
 const coinboxBaseMat=new THREE.MeshStandardMaterial({color:0x9a8672,roughness:0.9,emissive:0x1e1712});
 const coinboxGoldMat=new THREE.MeshStandardMaterial({color:0xe2b862,roughness:0.4,emissive:0x6a4c18});
-const coinboxSlotMat=new THREE.MeshStandardMaterial({color:0x22262c,roughness:0.7});
+const coinboxSlotMat=new THREE.MeshBasicMaterial({color:0x000000});   // 光を受けない真っ黒
 const coinboxLineMat=new THREE.LineBasicMaterial({color:0x2b3640});
 
 // メッシュ + 輪郭線（edge は線にする角度のしきい値。false で線なし）
