@@ -194,7 +194,7 @@ function createCoinbox(){
   for(let i=0;i<=12;i++){const r=dc.bowlR*i/12;discProf.push(new THREE.Vector2(r,bowlZ(r)));}
   discProf.push(new THREE.Vector2(dc.r,dc.t),new THREE.Vector2(dc.r,0),new THREE.Vector2(0,0));
   discProf.reverse();   // 底 → 側面 → 表面 → くぼみの順にすると面が外を向く
-  const discGeo=new THREE.LatheGeometry(discProf,48);
+  const discGeo=new THREE.LatheGeometry(discProf,16);
   discGeo.rotateX(Math.PI/2);   // 回転軸 y → 面の法線 z
   face.add(coinboxMesh(discGeo,coinboxGoldMat));
   // スロットはくぼみの面に沿わせて曲げた板
