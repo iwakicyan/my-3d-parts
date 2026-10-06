@@ -140,7 +140,7 @@ const COINBOX={
   FRONT_H:0.13,               // 金の箱の正面の垂直な部分の高さ
   H:0.48,                     // 金の箱の高さ
   TOP_D:0.17,                 // 金の箱の天面の奥行き（残りが斜めの面）
-  DISC:{r:0.2,t:0.04, bowlR:0.08,bowlD:0.03},   // 投入口の円盤（半径・厚み・中心のくぼみの半径・深さ）
+  DISC:{r:0.2,t:0.04,seg:16, bowlR:0.08,bowlD:0.03,bowlSeg:13},   // 投入口の円盤（半径・厚み・周囲の分割数、中心のくぼみの半径・深さ・周囲の分割数）
   SLOT:{w:0.033,l:0.225},      // 縦のスロット（幅・長さ）
 };
 const coinboxBaseMat=new THREE.MeshStandardMaterial({color:0x9a8672,roughness:0.9,emissive:0x1e1712});
@@ -148,11 +148,11 @@ const coinboxGoldMat=new THREE.MeshStandardMaterial({color:0xe2b862,roughness:0.
 const coinboxSlotMat=new THREE.MeshStandardMaterial({color:0x22262c,roughness:0.7});
 const coinboxLineMat=new THREE.LineBasicMaterial({color:0x2b3640});
 
-// メッシュ + 輪郭線
-function coinboxMesh(geo,mat,edge=true){
+// メッシュ + 輪郭線（edge は線にする角度のしきい値。false で線なし）
+function coinboxMesh(geo,mat,edge=20){
   const mesh=new THREE.Mesh(geo,mat);
   mesh.castShadow=true;
-  if(edge)mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,20),coinboxLineMat));
+  if(edge)mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,edge),coinboxLineMat));
   return mesh;
 }
 
@@ -190,13 +190,26 @@ function createCoinbox(){
   const dc=C.DISC;
   const sphR=(dc.bowlR*dc.bowlR+dc.bowlD*dc.bowlD)/(2*dc.bowlD);   // くぼみの球の半径
   const bowlZ=r=>r>=dc.bowlR?dc.t:dc.t-dc.bowlD+sphR-Math.sqrt(sphR*sphR-r*r);   // 中心から r の所の表面の高さ（くぼみの外は平ら）
-  const discProf=[];
-  for(let i=0;i<=12;i++){const r=dc.bowlR*i/12;discProf.push(new THREE.Vector2(r,bowlZ(r)));}
-  discProf.push(new THREE.Vector2(dc.r,dc.t),new THREE.Vector2(dc.r,0),new THREE.Vector2(0,0));
-  discProf.reverse();   // 底 → 側面 → 表面 → くぼみの順にすると面が外を向く
-  const discGeo=new THREE.LatheGeometry(discProf,16);
-  discGeo.rotateX(Math.PI/2);   // 回転軸 y → 面の法線 z
-  face.add(coinboxMesh(discGeo,coinboxGoldMat));
+  // 円盤とくぼみで周囲の分割数が違うので、側面・平らな表面・くぼみを別々に作る
+  // LatheGeometry の頂点は (r·sinφ, h, r·cosφ)。回転軸 y を面の法線 z へ回すと (r·sinφ, -r·cosφ, h) になる
+  const ngon=(r,n)=>Array.from({length:n},(_,i)=>new THREE.Vector2(r*Math.sin(i/n*Math.PI*2),-r*Math.cos(i/n*Math.PI*2)));
+  const lathe=(pts,n)=>{
+    const geo=new THREE.LatheGeometry(pts,n);   // 下から上へ並べると面が外を向く
+    geo.rotateX(Math.PI/2);   // 回転軸 y → 面の法線 z
+    return geo;
+  };
+  // 側面（分割の縦線は出さない）
+  face.add(coinboxMesh(lathe([new THREE.Vector2(dc.r,0),new THREE.Vector2(dc.r,dc.t)],dc.seg),coinboxGoldMat,30));
+  // 平らな表面：外は円盤の多角形、内はくぼみの多角形の穴
+  const top=new THREE.Shape(ngon(dc.r,dc.seg));
+  top.holes.push(new THREE.Path(ngon(dc.bowlR,dc.bowlSeg)));
+  const topGeo=new THREE.ShapeGeometry(top);
+  topGeo.translate(0,0,dc.t);
+  face.add(coinboxMesh(topGeo,coinboxGoldMat));
+  // くぼみ：縁から中心へ下りていく球面
+  const bowlProf=[];
+  for(let i=12;i>=0;i--){const r=dc.bowlR*i/12;bowlProf.push(new THREE.Vector2(r,bowlZ(r)));}
+  face.add(coinboxMesh(lathe(bowlProf,dc.bowlSeg),coinboxGoldMat,40));
   // スロットはくぼみの面に沿わせて曲げた板
   const sl=C.SLOT;
   const slotGeo=new THREE.PlaneGeometry(sl.w,sl.l,1,16);
