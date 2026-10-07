@@ -127,6 +127,10 @@ export function createSShall(){
 
   // 扉：正面の壁の真ん中にアーチ形の両開き（左右の扉板 + 丸い取っ手）
   const D=C.DOOR, dr=D.w/2, ds=D.h-dr-P.h, dx=(F.x0+F.x1)/2;
+  // 扉の部品は doorPanel にまとめる（原点 = 扉の下端の真ん中で壁の面の上、+z が外）
+  const doorPanel=new THREE.Group();
+  doorPanel.position.set(dx,P.h,F.z1);
+  group.add(doorPanel);
   const leaf=s=>{   // s=-1 左、+1 右
     const sh=new THREE.Shape();
     sh.moveTo(0,0); sh.lineTo(s*dr,0); sh.lineTo(s*dr,ds);
@@ -134,15 +138,17 @@ export function createSShall(){
     else sh.absarc(0,ds,dr,Math.PI,Math.PI/2,true);
     sh.lineTo(0,0);
     const g=new THREE.ExtrudeGeometry(sh,{depth:D.t,bevelEnabled:false,curveSegments:2});
-    g.translate(dx,P.h,F.z1-D.t/2);
-    add(g,sshallDoorMat,30);
+    g.translate(0,0,-D.t/2);
+    add(g,sshallDoorMat,30,doorPanel);
   };
   leaf(-1); leaf(1);
   [-1,1].forEach(s=>{
     const g=new THREE.TorusGeometry(0.105,0.027,4,8);
-    g.translate(dx+s*0.18,P.h+1.05,F.z1+D.t/2+0.03);
-    add(g,sshallDarkMat,false);
+    g.translate(s*0.18,1.05,D.t/2+0.03);
+    add(g,sshallDarkMat,false,doorPanel);
   });
+  group.userData.doorPanel=doorPanel;   // 扉（両開きの板と取っ手）
+  group.userData.doorSize={w:D.w,h:D.h-P.h,t:D.t,curveSegments:2};   // 扉の外形（幅・下端からアーチの頂点までの高さ・厚み・アーチの分割）
 
   // 扉の前の段
   const S=C.STEP;
