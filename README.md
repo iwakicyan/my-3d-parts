@@ -24,6 +24,7 @@ Three.js 3Dパーツライブラリ
 - `Materis3.jsx` — ライム発光・`createMateris3()`・emissive(0x88ff22)
 - `Materis4.jsx` — ワイヤー・`createMateris4()`・青/wireframe:true
 - `Materis5.jsx` — 頂点カラー・`createMateris5()`・赤↔青グラデーション
+- `mergeStatic.js` — 動かない部品のメッシュ・輪郭線をマテリアルごとに1つへまとめる・`mergeStatic(group, {keep})`・見た目はそのままで描画の回数を減らす（スマホ向け）・透明なマテリアル・隠してあるもの・`keep(obj)` が true のものはそのまま・当たり判定の Object3D は残す・Frame / Materis / forest1 / chairtree / saku_1 / bridge01 が使用
 
 ## landmark（建造物）
 

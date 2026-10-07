@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeStatic } from '../parts/mergeStatic.js';
 
 // 柵（saku_1）— workspace/saku.html と同じ形。原点 = 端（角）の杭の根元、単位 1 = 1m
 // 細い角柱の杭の真ん中を、厚い横板2段が貫通する柵。杭の頭は上の板より少し上に出る
@@ -27,14 +28,20 @@ function sakuBox(group,w,h,d,x,y,z){
 
 // まっすぐな柵。+x 方向へ spans 区間（杭は spans+1 本）、横板は杭の真ん中(z=0)を貫通する
 // startOver: 始点側の横板のはみ出し（角では短くして、もう片側の横板の外の面で止める）
-export function createSaku1({spans=2,startOver=SAKU.OVER}={}){
+// firstPost: false で始点の杭を立てない（角で、もう片側の杭と重なるとき）
+function buildSaku1({spans=2,startOver=SAKU.OVER,firstPost=true}={}){
   const S=SAKU, p=S.POST, L=spans*S.SPAN;
   const group=new THREE.Group();
   group.name='柵';
-  for(let i=0;i<=spans;i++)sakuBox(group,p,S.H,p,i*S.SPAN,S.H/2,0);
+  for(let i=firstPost?0:1;i<=spans;i++)sakuBox(group,p,S.H,p,i*S.SPAN,S.H/2,0);
   const x0=-startOver, x1=L+S.OVER;
   S.RAILS.forEach(y=>sakuBox(group,x1-x0,S.RAIL_H,S.RAIL_T,(x0+x1)/2,y+S.RAIL_H/2,0));
   return group;
+}
+
+// 板・杭と輪郭線をそれぞれ 1 つにまとめて返す（ピースごとに描画 2 回）
+export function createSaku1(opts){
+  return mergeStatic(buildSaku1(opts));
 }
 
 // L字の角の柵。角の杭を原点に、A は +x 方向、B は +z 方向
@@ -43,13 +50,11 @@ export function createSaku1Corner({spansA=1,spansB=1}={}){
   const group=new THREE.Group();
   group.name='柵（角）';
   const cut=SAKU.RAIL_T/2;
-  const a=createSaku1({spans:spansA,startOver:cut});
-  const b=createSaku1({spans:spansB,startOver:cut});
+  const a=buildSaku1({spans:spansA,startOver:cut});
+  const b=buildSaku1({spans:spansB,startOver:cut,firstPost:false});   // 角の杭は A 側の1本だけ残す
   b.rotation.y=-Math.PI/2;   // +x → +z
-  // 角の杭は A 側の1本だけ残す
-  b.remove(b.children[0]);
   group.add(a,b);
-  return group;
+  return mergeStatic(group);
 }
 
 export const SAKU1=SAKU;   // 寸法（杭の間隔 SAKU1.SPAN で並べるときなどに使う）

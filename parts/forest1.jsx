@@ -14,6 +14,7 @@
 // ============================================================
 
 import * as THREE from "three";
+import { mergeStatic } from './mergeStatic.js';
 
 // シード固定乱数
 function mulberry32(seed) {
@@ -85,5 +86,5 @@ export function createForest1() {
     }
   });
 
-  return group;
+  return mergeStatic(group);   // 柱・球をマテリアルごとに 1 メッシュへ（半透明の球はそのまま）
 }

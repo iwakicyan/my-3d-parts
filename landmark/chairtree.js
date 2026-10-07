@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeStatic } from '../parts/mergeStatic.js';
 
 const DEG = Math.PI / 180;
 
@@ -145,7 +146,7 @@ export function createChairTree() {
     mainGroup.add(d);
   });
 
-  return mainGroup;
+  return mergeStatic(mainGroup);   // 幹・葉・飾りをマテリアルごとに 1 メッシュへ
 }
 
 export default createChairTree;

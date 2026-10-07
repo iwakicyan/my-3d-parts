@@ -9,6 +9,7 @@
 // ============================================================
 
 import * as THREE from 'three';
+import { mergeStatic } from './mergeStatic.js';
 
 const eps = 0.001;
 
@@ -99,5 +100,5 @@ export function createMateris3() {
 
   root.position.set(4, 1, 0);
   root.rotation.z = THREE.MathUtils.degToRad(33);
-  return root;
+  return mergeStatic(root);   // マテリアルごとに 1 メッシュへ
 }

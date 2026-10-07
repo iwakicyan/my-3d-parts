@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeStatic } from '../parts/mergeStatic.js';
 
 // 橋（bridge01）— workspace/bridge01.html と同じ形
 // 円柱の両端に円錐を付けた形を横に寝かせ（軸 = x。歩く向きはこれと直角の z）、ほとんどを地面に埋めて上の部分だけを出す
@@ -160,6 +161,11 @@ export function createBridge01({cut=BRIDGE01.CUT,stepSink=BRIDGE01.STEP.SINK}={}
     group.add(rail);
     rails.push(rail);
   });
+
+  // 本体・ステップ・柱・輪郭線をそれぞれ 1 つにまとめる（柱が 60 本ほどあり、分けたままだと重い）。上を歩ける面は本体とステップをまとめたもの
+  mergeStatic(group);
+  walkable.length=0;
+  walkable.push(...group.children.filter(o=>o.isMesh&&o.material===bridgeMat));
 
   const halfL=B.CYL_L/2+B.CONE_L;
   group.userData.walkable=walkable;   // 地表と同じように上に立てるメッシュ（ゲーム側で地面の高さのレイキャストに加える）
