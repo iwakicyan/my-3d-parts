@@ -40,6 +40,7 @@ Three.js 3Dパーツライブラリ
 - `bridge01.js` — 橋・`createBridge01({cut, stepSink})`（水の上に架けるときは削る高さ・ステップを沈める量を水面より下に。既定の `cut:'axis'` は軸より下の半分を削る）・原点=地面の高さで橋の真ん中・円柱（軸=x）の両端に円錐を付けた形の上2mだけを出し、歩く向きは z（円柱のアーチを乗り越える）・アーチの縁に先端が正十二面体の棒・z の両端に高さ50cmのステップ・軸（円錐の先端の高さ）より下の半分は削ってある・`userData.walkable` に上を歩けるメッシュ（本体とステップ）・`userData.rails` に両側の柱の列に沿った手すりの当たり判定（`userData.footprint` を持つ Object3D）・`userData.footprint` 付き（形は workspace/bridge01.html と同じ）
 - `coinbox.js` — コイン箱・`createCoinbox()`・原点=台の底面の中心・+z が正面・高さ1.08m（茶色の台 0.7×0.6×0.7m + 前が斜めの金色の箱）・斜めの面に投入口（12角形の円盤、中心に10角形のくぼみ、縦のスロット）・`userData.slot` が投入口のグループ（ローカル +z が面の法線・+y がスロットの向き）・`userData.footprint` 付き（形は workspace/coinbox.html と同じ）
 - `dote.js` — 土手・`createDote({size})` / `createDote({tsubo})`（天面の幅の真ん中を結ぶ四角形の一辺[m]か面積[坪]で大きさを指定。既定は一辺10m）・正方形の輪になった台形柱（天面の幅0.8m・y=0から天面まで1.2m・外の斜面は水平0.9m）・外の斜面は同じ勾配で y=-1m まで延ばして地面に埋める・内側は天面の内縁から中心の1点へ同じ勾配で下りるすり鉢（穴なし。大きいほど深い）・既定の色は m 指定 #316B57、坪指定 #357884（`color` で変更）・原点=y=0 の裾の高さで中心・`userData.footprint` 付き（形は workspace/dote.html と同じ）
+- `sshall.js` — SShall・`createSShall()`・原点=塔の中心の地面・+z が正面（扉の向き）・高さ7.5m（塔の円錐屋根の先）・円筒の塔（12分割）の手前に正面の棟（アーチの両開き扉と石段）、奥の右に棟・`userData.colliders` に当たり判定の矩形3つ（棟2つと塔。`userData.footprint` を持つ Object3D。原点が外形の中心ではないので分けて渡す）（形は workspace/sshall.html と同じ）
 
 ## workspace（作業台）
 
