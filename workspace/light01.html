@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Light01</title>
+</head>
+<body>
+<style>
+#eb-wrap { width: 100%; height: 480px; position: relative; border-radius: var(--border-radius-lg); overflow: hidden; background: #e4e8ec; }
+#eb-label { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.85); border-radius: 10px; padding: 8px 14px; font-size: 12px; color: #444; line-height: 1.8; font-family: sans-serif; pointer-events: none; min-width: 140px; }
+#eb-label .hud-title { font-size: 11px; color: #999; font-weight: bold; letter-spacing: 0.05em; }
+#eb-label .hud-list { margin: 2px 0 4px; }
+#eb-label .hud-hint { font-size: 11px; color: #aaa; }
+#eb-canvas { width: 100%; height: 100%; display: block; }
+#wf-btn { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: sans-serif; color: #444; }
+</style>
+<div id="eb-wrap">
+  <div id="eb-label">
+    <div class="hud-title">オブジェクト一覧</div>
+    <div class="hud-list" id="hud-list"><span style="color:#ccc">（なし）</span></div>
+    <div class="hud-hint">ドラッグで回転 / スクロールでズーム</div>
+  </div>
+  <button id="wf-btn">🔲 ワイヤーフレーム ON</button>
+  <canvas id="eb-canvas"></canvas>
+</div>
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script>
+(function() {
+
+const canvas = document.getElementById('eb-canvas');
+const wrap = document.getElementById('eb-wrap');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe4e8ec);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+
+function resize() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+const sun = new THREE.DirectionalLight(0xfff8f0, 0.6); sun.position.set(5,8,4); sun.castShadow=true; scene.add(sun);
+const fill = new THREE.DirectionalLight(0xd0e0ff, 0.4); fill.position.set(-4,2,-3); scene.add(fill);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshPhongMaterial({color:0xc8ccc8}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-5; ground.receiveShadow=true; scene.add(ground);
+
+const allMeshes=[];
+
+const GEO_NAMES={
+  IcosahedronGeometry:'二十面体', OctahedronGeometry:'八面体',
+  DodecahedronGeometry:'正十二面体', TetrahedronGeometry:'四面体',
+  TorusGeometry:'トーラス', TorusKnotGeometry:'トーラスノット',
+  ConeGeometry:'円錐', CylinderGeometry:'円柱',
+  SphereGeometry:'球', BoxGeometry:'直方体',
+  PlaneGeometry:'平面', BufferGeometry:'カスタム',
+};
+function getLabel(m){
+  if(m.name) return m.name;
+  if(!m.geometry) return m.type==='Group'?'グループ':m.type;
+  const base=GEO_NAMES[m.geometry.type]||m.geometry.type.replace('Geometry','');
+  return base+(m.userData.label?' '+m.userData.label:'');
+}
+const hudList=document.getElementById('hud-list');
+let _hudCount=-1;
+function updateHUD(){
+  _hudCount=allMeshes.length;
+  hudList.innerHTML=allMeshes.length
+    ?allMeshes.map(m=>`· ${getLabel(m)}`).join('<br>')
+    :'<span style="color:#ccc">（なし）</span>';
+}
+
+const posV=[],negV=[];
+for(let i=-10;i<=10;i++){const arr=i<0?negV:posV;arr.push(i,0,0);arr.push(0,i,0);arr.push(0,0,i);}
+const axPosGeo=new THREE.BufferGeometry();
+axPosGeo.setAttribute('position',new THREE.Float32BufferAttribute(posV,3));
+scene.add(new THREE.Points(axPosGeo,new THREE.PointsMaterial({color:0x000000,size:4,sizeAttenuation:false})));
+const axNegGeo=new THREE.BufferGeometry();
+axNegGeo.setAttribute('position',new THREE.Float32BufferAttribute(negV,3));
+scene.add(new THREE.Points(axNegGeo,new THREE.PointsMaterial({color:0x5070D0,size:4,sizeAttenuation:false})));
+
+let dragging=false,prevX=0,prevY=0,theta=0.5,phi=0.3,R_val=22.0;
+const tgt=new THREE.Vector3(0,0,0);
+const updateCam=()=>{
+  camera.position.set(tgt.x+R_val*Math.sin(theta)*Math.cos(phi),tgt.y+R_val*Math.sin(phi),tgt.z+R_val*Math.cos(theta)*Math.cos(phi));
+  camera.lookAt(tgt);
+};
+updateCam();
+
+canvas.addEventListener("mousedown",e=>{dragging=true;prevX=e.clientX;prevY=e.clientY;});
+window.addEventListener("mouseup",()=>dragging=false);
+window.addEventListener("mousemove",e=>{if(!dragging)return;theta-=(e.clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.clientY-prevY)*0.007));prevX=e.clientX;prevY=e.clientY;updateCam();});
+canvas.addEventListener("touchstart",e=>{dragging=true;prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;},{passive:true});
+window.addEventListener("touchend",()=>dragging=false);
+window.addEventListener("touchmove",e=>{if(!dragging)return;theta-=(e.touches[0].clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.touches[0].clientY-prevY)*0.007));prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;updateCam();},{passive:true});
+canvas.addEventListener("wheel",e=>{R_val=Math.max(6,Math.min(60,R_val+e.deltaY*0.02));updateCam();},{passive:true});
+
+let wireframe=false;
+const wfBtn=document.getElementById('wf-btn');
+function applyWireframe(obj){
+  obj.traverse(o=>{
+    if(!o.isMesh)return;
+    (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if('wireframe' in m)m.wireframe=wireframe;});
+  });
+}
+wfBtn.addEventListener('click',()=>{
+  wireframe=!wireframe;
+  allMeshes.forEach(applyWireframe);
+  wfBtn.textContent=wireframe?'🔲 ワイヤーフレーム OFF':'🔲 ワイヤーフレーム ON';
+});
+
+// 作業台にオブジェクトを置く（シーン追加 + 一覧登録 + ワイヤーフレーム状態反映）
+function addObject(obj){
+  scene.add(obj);
+  allMeshes.push(obj);
+  applyWireframe(obj);
+  return obj;
+}
+function removeObject(obj){
+  scene.remove(obj);
+  const i=allMeshes.indexOf(obj);
+  if(i>=0)allMeshes.splice(i,1);
+}
+window.workspace={scene,addObject,removeObject,allMeshes,THREE};
+
+// ===== light01（サブちゃんの頭を棒に載せたライト） =====
+// 「ライト棒だけ」と「ライト頭だけ（棒以外）」を別々にも使えるように分けて作る
+// 単位はサブちゃんと同じ（1 unit = 0.1m）。作業台では全体を 1.54 倍して置く
+const LIGHT01={
+  POLE_R:0.5, POLE_LEN:12.5,   // 棒（四角柱）
+  RING_R:2.8, RING_TUBE:0.4,   // 横のリング
+  TIP_R:1.0,                   // リングの中心の球
+  HEAD_Y:3.92,                 // リングの中心から頭の中心までの高さ
+};
+const light01Mat={
+  body:new THREE.MeshLambertMaterial({color:0xC8E2EA}),   // 頭・耳の当て・リング
+  dark:new THREE.MeshLambertMaterial({color:0x20202c}),   // 耳のリング
+  pole:new THREE.MeshPhongMaterial({color:0x323244,shininess:80,specular:0x6666aa}),  // 棒・中心の球
+};
+
+function makeHeadGeo(){
+  const geo=new THREE.SphereGeometry(1.6,10,7);
+  const pos=geo.attributes.position;
+  const maxX=1.6, boundary=0.5;
+  for(let i=0;i<pos.count;i++){
+    const ax=Math.abs(pos.getX(i));
+    const expand=ax<=boundary?1.05:1.05+((ax-boundary)/(maxX-boundary))*0.15;
+    pos.setY(i,pos.getY(i)*expand);
+    pos.setZ(i,pos.getZ(i)*expand);
+  }
+  pos.needsUpdate=true;
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// ライト棒だけ。原点 = 棒の下端、userData.top = 上端の高さ（頭を載せる位置）
+function createLight01Pole(){
+  const L=LIGHT01;
+  const group=new THREE.Group();
+  group.name='light01 棒';
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(L.POLE_R,L.POLE_R,L.POLE_LEN,4),light01Mat.pole);
+  pole.position.y=L.POLE_LEN/2;
+  pole.castShadow=true;
+  group.add(pole);
+  group.userData.top=L.POLE_LEN;
+  return group;
+}
+
+// ライト頭だけ（棒以外: 頭・耳・横のリング・中心の球）。原点 = リングの中心（棒の上端に合わせる点）
+function createLight01Head(){
+  const L=LIGHT01;
+  const group=new THREE.Group();
+  group.name='light01 頭';
+
+  const headGroup=new THREE.Group();
+  headGroup.position.y=L.HEAD_Y;
+  group.add(headGroup);
+
+  // HEAD
+  const head=new THREE.Mesh(makeHeadGeo(),light01Mat.body);
+  head.scale.set(6/3.2,5/3.2,4/3.2*1.1);
+  headGroup.add(head);
+
+  // EARS × 2（リング + 当て球）
+  const earGeo=new THREE.TorusGeometry(1.5,0.3,4,13);
+  const padGeo=new THREE.SphereGeometry(1.5,4,3);
+  [-1,1].forEach(s=>{
+    const ear=new THREE.Mesh(earGeo,light01Mat.dark);
+    ear.position.set(s*2.5,0.10,0.0);
+    ear.rotation.y=Math.PI/2;
+    headGroup.add(ear);
+    const pad=new THREE.Mesh(padGeo,light01Mat.body);
+    pad.position.set(s*2.5,0.10,0.0);
+    headGroup.add(pad);
+  });
+
+  // RING（横のリング）
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(L.RING_R,L.RING_TUBE,7,13),light01Mat.body);
+  ring.rotation.x=Math.PI/2;
+  group.add(ring);
+
+  // TIP（リングの中心の球）
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(L.TIP_R,4,3),light01Mat.pole));
+
+  group.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  return group;
+}
+
+// 棒の上に頭を載せたもの。原点 = 棒の下端
+function createLight01(){
+  const group=new THREE.Group();
+  group.name='light01';
+  const pole=createLight01Pole();
+  const head=createLight01Head();
+  head.position.y=pole.userData.top;
+  group.add(pole,head);
+  return group;
+}
+
+const light01=createLight01();
+light01.scale.setScalar(1.54);
+light01.position.y=-5;  // 棒の下端を地面に合わせる
+addObject(light01);
+
+resize();
+window.addEventListener("resize",resize);
+(function animate(){requestAnimationFrame(animate);renderer.render(scene,camera);if(allMeshes.length!==_hudCount)updateHUD();})();
+
+})();
+</script>
+</body>
+</html>
