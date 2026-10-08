@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import { mergeStatic } from '../parts/mergeStatic.js';
 
 // light01 — workspace/light01.html と同じ形
 // サブちゃんの頭（顔なし）を横のリングに載せ、四角柱の棒で立てたライト
 // 「ライト棒だけ」「ライト頭だけ（棒以外）」を別々にも使えるように分けてある
+// 動く部品はないので、頭と組み合わせは mergeStatic で色（マテリアル）ごとに 1 メッシュへまとめて返す
 // 形はサブちゃんのモデル単位で作り、頭がサブちゃんと同じ大きさになるよう U 倍して m にする
 // （coccolith の SAB_SCALE と同じ。1 = 1m）
 const U=0.168;
@@ -44,8 +46,7 @@ function scaledGroup(name){
   return [group,inner];
 }
 
-// ライト棒だけ。原点 = 棒の下端・高さ 2.1m・userData.top = 上端の高さ（頭を載せる位置）・userData.footprint 付き
-export function createLight01Pole(){
+function buildPole(){
   const L=LIGHT01;
   const [group,inner]=scaledGroup('light01 棒');
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(L.POLE_R,L.POLE_R,L.POLE_LEN,4),light01Mat.pole);
@@ -57,9 +58,7 @@ export function createLight01Pole(){
   return group;
 }
 
-// ライト頭だけ（棒以外: 頭・耳・横のリング・中心の球）
-// 原点 = リングの中心（棒の上端に合わせる点）・+z が頭の正面・下へは中心の球の分 0.17m 出る
-export function createLight01Head(){
+function buildHead(){
   const L=LIGHT01;
   const [group,inner]=scaledGroup('light01 頭');
 
@@ -97,14 +96,28 @@ export function createLight01Head(){
   return group;
 }
 
+// ライト棒だけ。原点 = 棒の下端・高さ 2.1m・userData.top = 上端の高さ（頭を載せる位置）・userData.footprint 付き
+// メッシュは 1 つなのでまとめない
+export function createLight01Pole(){
+  return buildPole();
+}
+
+// ライト頭だけ（棒以外: 頭・耳・横のリング・中心の球）
+// 原点 = リングの中心（棒の上端に合わせる点）・+z が頭の正面・下へは中心の球の分 0.17m 出る
+// 色ごとに 3 メッシュ（頭の色・耳のリングの暗い色・中心の球）にまとめる
+export function createLight01Head(){
+  return mergeStatic(buildHead());
+}
+
 // 棒の上に頭を載せたもの。原点 = 棒の下端・高さ約 3.2m・userData.footprint は棒のまわりのみ
+// 色ごとに 3 メッシュ（頭の色・耳のリングの暗い色・棒と中心の球）にまとめる
 export function createLight01(){
   const group=new THREE.Group();
   group.name='light01';
-  const pole=createLight01Pole();
-  const head=createLight01Head();
+  const pole=buildPole();
+  const head=buildHead();
   head.position.y=pole.userData.top;
   group.add(pole,head);
   group.userData.footprint=pole.userData.footprint;
-  return group;
+  return mergeStatic(group);
 }
