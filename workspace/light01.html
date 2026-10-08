@@ -134,13 +134,14 @@ window.workspace={scene,addObject,removeObject,allMeshes,THREE};
 // 「ライト棒だけ」と「ライト頭だけ（棒以外）」を別々にも使えるように分けて作る
 // 単位はサブちゃんと同じ（1 unit = 0.1m）。作業台では全体を 1.54 倍して置く
 const LIGHT01={
-  POLE_R:0.5, POLE_LEN:12.5,   // 棒（四角柱）
+  POLE_R:0.5, POLE_LEN:18.45,  // 棒（四角柱）。coccolith では 3.1m（1 unit = 0.168m）
   RING_R:2.8, RING_TUBE:0.4,   // 横のリング
   TIP_R:1.0,                   // リングの中心の球
   HEAD_Y:3.92,                 // リングの中心から頭の中心までの高さ
 };
 const light01Mat={
-  body:new THREE.MeshLambertMaterial({color:0xC8E2EA}),   // 頭・耳の当て・リング
+  glow:new THREE.MeshLambertMaterial({color:0xC8E2EA,emissive:0xC8E2EA,emissiveIntensity:1.0}),   // 頭（ライトとして光る）
+  body:new THREE.MeshLambertMaterial({color:0xC8E2EA}),   // 耳の当て・リング
   dark:new THREE.MeshLambertMaterial({color:0x20202c}),   // 耳のリング
   pole:new THREE.MeshPhongMaterial({color:0x323244,shininess:80,specular:0x6666aa}),  // 棒・中心の球
 };
@@ -184,7 +185,7 @@ function createLight01Head(){
   group.add(headGroup);
 
   // HEAD
-  const head=new THREE.Mesh(makeHeadGeo(),light01Mat.body);
+  const head=new THREE.Mesh(makeHeadGeo(),light01Mat.glow);
   head.scale.set(6/3.2,5/3.2,4/3.2*1.1);
   headGroup.add(head);
 

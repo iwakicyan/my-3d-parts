@@ -9,13 +9,14 @@ import { mergeStatic } from '../parts/mergeStatic.js';
 // （coccolith の SAB_SCALE と同じ。1 = 1m）
 const U=0.168;
 const LIGHT01={
-  POLE_R:0.5, POLE_LEN:12.5,   // 棒（四角柱）
+  POLE_R:0.5, POLE_LEN:18.45,  // 棒（四角柱）。長さ 3.1m（× 0.168）
   RING_R:2.8, RING_TUBE:0.4,   // 横のリング
   TIP_R:1.0,                   // リングの中心の球
   HEAD_Y:3.92,                 // リングの中心から頭の中心までの高さ
 };
 const light01Mat={
-  body:new THREE.MeshLambertMaterial({color:0xC8E2EA}),   // 頭・耳の当て・リング
+  glow:new THREE.MeshLambertMaterial({color:0xC8E2EA,emissive:0xC8E2EA,emissiveIntensity:1.0}),   // 頭（ライトとして光る）
+  body:new THREE.MeshLambertMaterial({color:0xC8E2EA}),   // 耳の当て・リング
   dark:new THREE.MeshLambertMaterial({color:0x20202c}),   // 耳のリング
   pole:new THREE.MeshPhongMaterial({color:0x323244,shininess:80,specular:0x6666aa}),  // 棒・中心の球
 };
@@ -67,7 +68,7 @@ function buildHead(){
   inner.add(headGroup);
 
   // HEAD
-  const head=new THREE.Mesh(makeHeadGeo(),light01Mat.body);
+  const head=new THREE.Mesh(makeHeadGeo(),light01Mat.glow);
   head.scale.set(6/3.2,5/3.2,4/3.2*1.1);
   headGroup.add(head);
 
@@ -93,10 +94,11 @@ function buildHead(){
   inner.add(new THREE.Mesh(new THREE.SphereGeometry(L.TIP_R,4,3),light01Mat.pole));
 
   inner.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  group.userData.lamp=new THREE.Vector3(0,L.HEAD_Y*U,0);   // 光の位置（頭の中心。ローカル座標）
   return group;
 }
 
-// ライト棒だけ。原点 = 棒の下端・高さ 2.1m・userData.top = 上端の高さ（頭を載せる位置）・userData.footprint 付き
+// ライト棒だけ。原点 = 棒の下端・高さ 3.1m・userData.top = 上端の高さ（頭を載せる位置）・userData.footprint 付き
 // メッシュは 1 つなのでまとめない
 export function createLight01Pole(){
   return buildPole();
@@ -104,13 +106,15 @@ export function createLight01Pole(){
 
 // ライト頭だけ（棒以外: 頭・耳・横のリング・中心の球）
 // 原点 = リングの中心（棒の上端に合わせる点）・+z が頭の正面・下へは中心の球の分 0.17m 出る
-// 色ごとに 3 メッシュ（頭の色・耳のリングの暗い色・中心の球）にまとめる
+// userData.lamp = 光の位置（頭の中心。ローカル座標）。光源（PointLight など）を置くときに使う
+// 色ごとに 4 メッシュ（光る頭・耳の当てとリング・耳のリングの暗い色・中心の球）にまとめる
 export function createLight01Head(){
   return mergeStatic(buildHead());
 }
 
-// 棒の上に頭を載せたもの。原点 = 棒の下端・高さ約 3.2m・userData.footprint は棒のまわりのみ
-// 色ごとに 3 メッシュ（頭の色・耳のリングの暗い色・棒と中心の球）にまとめる
+// 棒の上に頭を載せたもの。原点 = 棒の下端・高さ約 4.2m・userData.footprint は棒のまわりのみ
+// userData.lamp = 光の位置（頭の中心。ローカル座標）
+// 色ごとに 4 メッシュ（光る頭・耳の当てとリング・耳のリングの暗い色・棒と中心の球）にまとめる
 export function createLight01(){
   const group=new THREE.Group();
   group.name='light01';
@@ -119,5 +123,6 @@ export function createLight01(){
   head.position.y=pole.userData.top;
   group.add(pole,head);
   group.userData.footprint=pole.userData.footprint;
+  group.userData.lamp=head.userData.lamp.clone().add(head.position);
   return mergeStatic(group);
 }
