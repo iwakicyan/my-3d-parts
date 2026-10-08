@@ -42,6 +42,7 @@ Three.js 3Dパーツライブラリ
 - `coinbox.js` — コイン箱・`createCoinbox()`・原点=台の底面の中心・+z が正面・高さ1.08m（茶色の台 0.7×0.6×0.7m + 前が斜めの金色の箱）・斜めの面に投入口（12角形の円盤、中心に10角形のくぼみ、縦のスロット）・`userData.slot` が投入口のグループ（ローカル +z が面の法線・+y がスロットの向き）・`userData.footprint` 付き（形は workspace/coinbox.html と同じ）
 - `dote.js` — 土手・`createDote({size})` / `createDote({tsubo})`（天面の幅の真ん中を結ぶ四角形の一辺[m]か面積[坪]で大きさを指定。既定は一辺10m）・正方形の輪になった台形柱（天面の幅0.8m・y=0から天面まで1.2m・外の斜面は水平0.9m）・外の斜面は同じ勾配で y=-1m まで延ばして地面に埋める・内側は天面の内縁から中心の1点へ同じ勾配で下りるすり鉢（穴なし。大きいほど深い）・既定の色は m 指定 #316B57、坪指定 #357884（`color` で変更）・原点=y=0 の裾の高さで中心・`userData.footprint` 付き（形は workspace/dote.html と同じ）
 - `sshall.js` — SShall・`createSShall()`・原点=塔の中心の地面・+z が正面（扉の向き）・高さ7.5m（塔の円錐屋根の先）・円筒の塔（12分割）の手前に正面の棟（アーチの両開き扉と石段）、奥の右に棟・`userData.colliders` に当たり判定の矩形3つ（棟2つと塔。`userData.footprint` を持つ Object3D。原点が外形の中心ではないので分けて渡す）（形は workspace/sshall.html と同じ）
+- `light01.js` — ライト・`createLight01()` / `createLight01Pole()`（棒だけ）/ `createLight01Head()`（頭だけ＝棒以外）・サブちゃんの頭（顔なし・耳付き）を横のリングに載せ、四角柱の棒で立てた形・頭がサブちゃんと同じ大きさになるようモデル単位を 0.168 倍（coccolith の SAB_SCALE と同じ）・全体の高さ約3.2m（棒2.1m＋頭1.1m）・棒の原点=下端で `userData.top` が上端の高さ・頭の原点=リングの中心（棒の上端に合わせる点）・`createLight01()` の原点=棒の下端・`userData.footprint` は棒のまわりのみ（形は workspace/light01.html と同じ）
 
 ## workspace（作業台）
 
