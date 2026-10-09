@@ -43,6 +43,7 @@ Three.js 3Dパーツライブラリ
 - `dote.js` — 土手・`createDote({size})` / `createDote({tsubo})`（天面の幅の真ん中を結ぶ四角形の一辺[m]か面積[坪]で大きさを指定。既定は一辺10m）・正方形の輪になった台形柱（天面の幅0.8m・y=0から天面まで1.2m・外の斜面は水平0.9m）・外の斜面は同じ勾配で y=-1m まで延ばして地面に埋める・内側は天面の内縁から中心の1点へ同じ勾配で下りるすり鉢（穴なし。大きいほど深い）・既定の色は m 指定 #316B57、坪指定 #357884（`color` で変更）・原点=y=0 の裾の高さで中心・`userData.footprint` 付き（形は workspace/dote.html と同じ）
 - `sshall.js` — SShall・`createSShall()`・原点=塔の中心の地面・+z が正面（扉の向き）・高さ7.5m（塔の円錐屋根の先）・円筒の塔（12分割）の手前に正面の棟（アーチの両開き扉と石段）、奥の右に棟・`userData.colliders` に当たり判定の矩形3つ（棟2つと塔。`userData.footprint` を持つ Object3D。原点が外形の中心ではないので分けて渡す）（形は workspace/sshall.html と同じ）
 - `light01.js` — ライト・`createLight01()` / `createLight01Pole()`（棒だけ）/ `createLight01Head()`（頭だけ＝棒以外）・サブちゃんの頭（顔なし・耳付き）を横のリングに載せ、四角柱の棒で立てた形・頭がサブちゃんと同じ大きさになるようモデル単位を 0.168 倍（coccolith の SAB_SCALE と同じ）・全体の高さ約4.2m（棒3.1m＋頭1.1m）・頭（球）は発光（emissive）・`userData.lamp` が光の位置（頭の中心。ローカル座標。光源を置く用）・棒の原点=下端で `userData.top` が上端の高さ・頭の原点=リングの中心（棒の上端に合わせる点）・`createLight01()` の原点=棒の下端・`userData.footprint` は棒のまわりのみ・頭と組み合わせは mergeStatic で色ごとに4メッシュにまとめる（形は workspace/light01.html と同じ）
+- `hoisun.js` — hoisun（ほいすん・白）/ hoason（ほあそん・暗い紫）・`createHoisun()` / `createHoason()`（`createHoisun(HOISUN_COLORS.xxx)` で色を指定）・形は同じで色違い・顔の付いた箱に台形の屋根、下に壁の並ぶ台と床板、左右の扉から U 字のすべり台・原点=地面、左右の中央、正面から1.8m奥・+z が正面・幅3.8m（すべり台を含めて約6.7m）×奥行き3.5m（床板まで）×高さ3.45m・`userData.colliders` に当たり判定の矩形3つ（建物と左右のすべり台。`userData.footprint` を持つ Object3D）・mergeStatic でマテリアルごとにまとめる（形は workspace/hoisun.html と同じ）
 
 ## workspace（作業台）
 
