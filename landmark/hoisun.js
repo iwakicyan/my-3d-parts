@@ -16,8 +16,8 @@ const HOISUN={
   SLIDE:{w:1.3,t:0.12,wall:0.5,sy:1.2,seg:10,extra:2,chamfer:0.3,inset:0.2,trimW:0.2,trimT:0.05,merge:[3,6],top:1.2},   // すべり台（幅・板の厚み・縁の高さ・高さ方向の倍率・地面に着くまでの分割数・その先に伸ばす分割数・先端の縁の上の角を 45° で落とす量・切らずにさらに本体側へずらす量・縁の上面に貼る板の幅と厚み・先端から何枚目〜何枚目の面を 1 枚につなぐか・上端の地面からの高さ）
 };
 export const HOISUN_COLORS={
-  hoason:{name:'hoason',box:0x6566a8,band:0x3d4466,win:0xf3d466,winGlow:0xc9a52a,pillar:0xd8dce2,recess:0x6c7c86,slab:0xdde1e6,slide:0xb4bfc8,door:0x1e2130,frame:0x6b4a30},
-  hoisun:{name:'hoisun',box:0xefebe3,band:0x55585e,win:0x8b8c90,winGlow:undefined,pillar:0x93a3b4,recess:0x66788a,slab:0x9aa8b8,slide:0xafbbc6,door:0x55585e,frame:0x6b4a30},
+  hoason:{name:'hoason',box:0x6566a8,band:0x3d4466,win:0xf3d466,pillar:0xd8dce2,recess:0x6c7c86,slab:0xdde1e6,slide:0xb4bfc8,door:0x1e2130,frame:0x6b4a30},
+  hoisun:{name:'hoisun',box:0xefebe3,band:0x55585e,win:0x8b8c90,pillar:0x93a3b4,recess:0x66788a,slab:0x9aa8b8,slide:0xafbbc6,door:0x55585e,frame:0x6b4a30},
 };
 
 // すべり台の側面の形（[外へ出る距離, 高さ]）。0 = 箱の側面
@@ -96,15 +96,15 @@ function makeSlideGeo(x0,y0,zc,side){
 }
 
 // 色ごとのマテリアル（同じ色の建物どうしで使い回す）
-// 色の 4 割を自己発光にして明るく見せる（作業台と同じ。sshall と同じ考え方）
+// 発光は窓のガラスだけ（色の 4 割）。ほかは光らせない（作業台と同じ）
 const hoisunLineMat=new THREE.LineBasicMaterial({color:0x2f3448});
 const materialCache=new Map();
 function materialsOf(colors){
   if(!materialCache.has(colors)){
-    const mat=(color,emissive)=>new THREE.MeshStandardMaterial({color,roughness:0.9,flatShading:true,
-      emissive:emissive??new THREE.Color(color).multiplyScalar(0.4)});
+    const mat=(color,glow=0)=>new THREE.MeshStandardMaterial({color,roughness:0.9,flatShading:true,
+      emissive:new THREE.Color(color).multiplyScalar(glow)});
     materialCache.set(colors,{
-      boxMat:mat(colors.box), bandMat:mat(colors.band), winMat:mat(colors.win,colors.winGlow),
+      boxMat:mat(colors.box), bandMat:mat(colors.band), winMat:mat(colors.win,0.4),
       pillarMat:mat(colors.pillar), recessMat:mat(colors.recess), slabMat:mat(colors.slab),
       slideMat:mat(colors.slide), doorMat:mat(colors.door), frameMat:mat(colors.frame),
     });
