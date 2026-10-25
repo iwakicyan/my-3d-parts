@@ -11,6 +11,7 @@
 //   import { createForest1 } from './forest1.jsx';
 //   const forest = createForest1();
 //   scene.add(forest);
+//   createForest1({ trunkExtend: 0.5 })   // 細柱を下へ 0.5 伸ばす（大きく置いて地面が傾くと根もとが浮くとき）
 // ============================================================
 
 import * as THREE from "three";
@@ -26,7 +27,7 @@ function mulberry32(seed) {
   };
 }
 
-export function createForest1() {
+export function createForest1({ trunkExtend = 0 } = {}) {
   const group = new THREE.Group();
   const rand = mulberry32(42);
 
@@ -68,8 +69,8 @@ export function createForest1() {
     ballPositions.push({ x, z });
   });
 
-  // 細柱（球の下に2〜3本）
-  const pillarGeo = new THREE.BoxGeometry(0.1, 2.0, 0.1);
+  // 細柱（球の下に2〜3本）。trunkExtend の分だけ上端はそのままで下へ伸ばす
+  const pillarGeo = new THREE.BoxGeometry(0.1, 2.0 + trunkExtend, 0.1);
   const pillarMat = new THREE.MeshPhongMaterial({ color: 0x80836A, flatShading: true });
   ballPositions.forEach(({ x, z }) => {
     const count = 2 + Math.floor(rand() * 2);
@@ -77,7 +78,7 @@ export function createForest1() {
       const pillar = new THREE.Mesh(pillarGeo, pillarMat);
       pillar.position.set(
         x + (rand() * 2 - 1) * 1.2,
-        0.5,
+        0.5 - trunkExtend / 2,
         z + (rand() * 2 - 1) * 1.2
       );
       pillar.rotation.y = rand() * Math.PI * 2;
