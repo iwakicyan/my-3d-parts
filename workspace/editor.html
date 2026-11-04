@@ -48,7 +48,7 @@
       <button id="hud-close" title="一覧をしまう">◀</button>
     </div>
     <div class="hud-list" id="hud-list"><span style="color:#ccc">（なし）</span></div>
-    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>空いている所をドラッグで回転 / スクロールでズーム</div>
+    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>⬇ / ⬆ で配置を JSON ファイルに書き出し・読み込み（別のブラウザへ持っていく用）<br>空いている所をドラッグで回転 / スクロールでズーム</div>
   </div>
   <button id="hud-open" title="一覧を出す">▶ 一覧</button>
   <button id="wf-btn">🔲 ワイヤーフレーム ON</button>
@@ -70,6 +70,9 @@
     <button id="save-btn" title="⌘/Ctrl+S">💾 保存</button>
     <button id="load-btn">📂 保存を開く</button>
     <button id="clear-save-btn">🗑 保存を消す</button>
+    <button id="export-btn" title="配置を JSON ファイルに書き出す">⬇ JSON 書き出し</button>
+    <button id="import-btn" title="書き出した JSON ファイルを読み込む">⬆ JSON 読み込み</button>
+    <input type="file" id="import-file" accept=".json,application/json" hidden>
     <div id="save-status"></div>
   </div>
   <div id="drag-panel">
@@ -677,7 +680,7 @@ const tfOut=o=>({p:o.position.toArray(),q:o.quaternion.toArray(),s:o.scale.toArr
 const tfIn=(o,t)=>{o.position.fromArray(t.p);o.quaternion.fromArray(t.q);o.scale.fromArray(t.s);};
 const partKey=m=>m.name+(m.userData.no?'#'+m.userData.no:'');
 const rootKey=(r,i)=>r.name||('#'+i);
-function saveLayout(){
+function layoutData(){
   const data={v:1,groupNo,roots:{}};
   allMeshes.forEach((r,ri)=>{
     if(!r.isGroup)return;
@@ -697,9 +700,35 @@ function saveLayout(){
     });
     data.roots[rootKey(r,ri)]={groups,parts,nodes};
   });
-  localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+  return data;
+}
+function saveLayout(){
+  localStorage.setItem(SAVE_KEY,JSON.stringify(layoutData()));
   showSaveStatus('保存しました');
 }
+// ===== JSON の書き出し・読み込み（ブラウザをまたいで配置を受け渡す。中身は保存と同じ形） =====
+const pageName=location.pathname.split('/').pop().replace(/\.html$/,'')||'workspace';
+function exportLayout(){
+  const d=new Date(), z=n=>String(n).padStart(2,'0');
+  const name=`${pageName}-layout-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`;
+  const url=URL.createObjectURL(new Blob([JSON.stringify(layoutData(),null,1)],{type:'application/json'}));
+  const a=document.createElement('a'); a.href=url; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showSaveStatus('書き出しました');
+}
+const importInput=document.getElementById('import-file');
+importInput.addEventListener('change',async()=>{
+  const file=importInput.files[0]; importInput.value='';
+  if(!file)return;
+  try{
+    const data=JSON.parse(await file.text());
+    if(!data||!data.roots)throw new Error('配置の JSON ではありません');
+    applyLayout(data);
+    showSaveStatus('読み込みました。残すなら 💾 保存');
+  }catch(err){console.error(err);showSaveStatus('読み込めませんでした');}
+});
+document.getElementById('export-btn').addEventListener('click',exportLayout);
+document.getElementById('import-btn').addEventListener('click',()=>importInput.click());
 function applyLayout(data){
   allMeshes.forEach((r,ri)=>{
     const d=data.roots[rootKey(r,ri)]; if(!d||!r.isGroup||!leavesOf(r).length)return;

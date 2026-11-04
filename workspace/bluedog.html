@@ -31,6 +31,7 @@
 #eb-label .part.grp { font-weight: bold; }
 #drag-tools .color-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 3px 6px 3px 10px; font-size: 12px; color: #444; }
 #drag-tools .color-row input { width: 40px; height: 24px; border: none; padding: 0; background: none; cursor: pointer; }
+#drag-tools .color-row input[type=range] { width: 70px; height: auto; }
 #drag-tools .color-row input:disabled { opacity: 0.35; cursor: default; }
 #save-status { font-size: 11px; color: #777; min-height: 15px; text-align: right; width: 0; min-width: 100%; }
 #drag-tools hr { border: none; height: 4px; margin: 0; }
@@ -48,7 +49,7 @@
       <button id="hud-close" title="一覧をしまう">◀</button>
     </div>
     <div class="hud-list" id="hud-list"><span style="color:#ccc">（なし）</span></div>
-    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>空いている所をドラッグで回転 / スクロールでズーム</div>
+    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>⬇ / ⬆ で配置を JSON ファイルに書き出し・読み込み（別のブラウザへ持っていく用）<br>🚶 歩く（Space）でその場で歩くモーション。速さはスライダー。編集すると止まる<br>空いている所をドラッグで回転 / スクロールでズーム</div>
   </div>
   <button id="hud-open" title="一覧を出す">▶ 一覧</button>
   <button id="wf-btn">🔲 ワイヤーフレーム ON</button>
@@ -56,6 +57,9 @@
     <button id="mode-move" class="on">✋ 移動 (G)</button>
     <button id="mode-rotate">⟳ 回転 (R)</button>
     <button id="mode-scale">⤢ 拡大縮小 (S)</button>
+    <hr>
+    <button id="walk-btn" title="Space">🚶 歩く</button>
+    <label class="color-row">速さ<input type="range" id="walk-speed" min="0.3" max="2" step="0.1" value="1"></label>
     <hr>
     <button id="drag-mirror" class="on">↔ 左右対称 ON</button>
     <hr>
@@ -70,6 +74,9 @@
     <button id="save-btn" title="⌘/Ctrl+S">💾 保存</button>
     <button id="load-btn">📂 保存を開く</button>
     <button id="clear-save-btn">🗑 保存を消す</button>
+    <button id="export-btn" title="配置を JSON ファイルに書き出す">⬇ JSON 書き出し</button>
+    <button id="import-btn" title="書き出した JSON ファイルを読み込む">⬆ JSON 読み込み</button>
+    <input type="file" id="import-file" accept=".json,application/json" hidden>
     <div id="save-status"></div>
   </div>
   <div id="drag-panel">
@@ -88,6 +95,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 (function() {
 
 const canvas = document.getElementById('eb-canvas');
@@ -385,6 +393,7 @@ function afterChange(o){
 
 // 選ぶ
 function selectParts(list){
+  if(list.filter(Boolean).length&&typeof stopWalk==='function')stopWalk();
   sels=list.filter(Boolean);
   sel=sels.length===1?sels[0]:null;
   if(sel){ensureOrig(sel);tc.attach(sel);tc.setMode(mode);tc.setSpace(mode==='scale'?'local':'world');}
@@ -574,6 +583,7 @@ document.getElementById('drag-copy').addEventListener('click',()=>{
   navigator.clipboard.writeText(JSON.stringify(offsets(),null,1));
 });
 function undo(){
+  stopWalk();
   const h=history.pop(); if(!h)return;
   if(h.undo)h.undo();
   else h.list.forEach(([o,p,q,s])=>{o.position.copy(p);o.quaternion.copy(q);o.scale.copy(s);});
@@ -582,6 +592,7 @@ function undo(){
 document.getElementById('drag-undo').addEventListener('click',undo);
 // 全部戻す：グループをすべて解除してから、パーツを元の変形に戻す
 document.getElementById('drag-reset').addEventListener('click',()=>{
+  stopWalk();
   selectParts([]);
   allMeshes.forEach(r=>{
     const gs=[]; r.traverse(c=>{if(c.userData.isPartGroup)gs.push(c);});
@@ -613,7 +624,33 @@ window.addEventListener('keydown',e=>{
   if(k==='r')setMode('rotate');
   if(k==='s')setMode('scale');
   if(e.key==='Escape')selectParts([]);
+  if(e.key===' '){e.preventDefault();walk?stopWalk():startWalk();}
 });
+// ===== 歩く（いまの配置のまま、その場で歩くモーションを見る） =====
+// 歩いている間は編集しない。選ぶ・保存・1つ戻す などをすると止めて、元の配置に戻してから行う
+let walk=null, walkT=0, walkPrev=0;
+const walkBtn=document.getElementById('walk-btn'), walkSpeed=document.getElementById('walk-speed');
+function startWalk(){
+  if(walk)return;
+  selectParts([]);
+  walk=createBluedogWalk(allMeshes[0]);
+  walkT=0; walkPrev=performance.now();
+  walkBtn.textContent='■ 止める'; walkBtn.classList.add('on');
+  requestAnimationFrame(walkTick);
+}
+function walkTick(now){
+  if(!walk)return;
+  walkT+=(now-walkPrev)/1000*(+walkSpeed.value); walkPrev=now;
+  walk.update(walkT);
+  requestAnimationFrame(walkTick);
+}
+function stopWalk(){
+  if(!walk)return;
+  walk.stop(); walk=null;
+  walkBtn.textContent='🚶 歩く'; walkBtn.classList.remove('on');
+}
+walkBtn.addEventListener('click',()=>walk?stopWalk():startWalk());
+
 // ===== 色 =====
 // 選んだパーツ（グループなら中のパーツ全部）の色を変える。左右対称 ON なら鏡写しの相手も同じ色に
 // マテリアルは共有なので、はじめて色を変えるときにそのパーツ用に複製する（userData.origMat に元のマテリアル）
@@ -659,18 +696,19 @@ colorInput.addEventListener('change',()=>{
 });
 
 // ===== 配置の保存（ブラウザの localStorage） =====
-// 保存するもの：作ったグループ（親・位置・向き・倍率・鏡写しの相手）と、パーツの親・位置・向き・倍率・変えた色
+// 保存するもの：作ったグループ（親・位置・向き・倍率・鏡写しの相手）と、パーツの親・位置・向き・倍率・変えた色・元の原点（c。形が変わったときの補正用）
 // パーツは「名前 #番号」で見分ける。開いたときに保存があれば自動でその配置にする
 const SAVE_KEY='workspace-layout:'+location.pathname;
 const saveStatus=document.getElementById('save-status');
 const tfOut=o=>({p:o.position.toArray(),q:o.quaternion.toArray(),s:o.scale.toArray()});
 const tfIn=(o,t)=>{o.position.fromArray(t.p);o.quaternion.fromArray(t.q);o.scale.fromArray(t.s);};
 const partKey=m=>m.name+(m.userData.no?'#'+m.userData.no:'');
-function saveLayout(){
+function layoutData(){
+  stopWalk();
   const data={v:1,groupNo,roots:{}};
   allMeshes.forEach(r=>{
     if(!r.isGroup)return;
-    numberParts(r);
+    numberParts(r); ensureOrig(leavesOf(r)[0]);
     const groups=[],parts=[];
     r.traverse(c=>{
       if(c===r||c.userData.outline)return;
@@ -679,15 +717,42 @@ function saveLayout(){
         const mir=c.userData.mirror;
         groups.push({name:c.name,parent,mirror:mir==='self'?'self':mir?mir.name:null,...tfOut(c)});
       }else if(c.isMesh){
-        parts.push({key:partKey(c),parent,color:colorOf(c),...tfOut(c)});
+        parts.push({key:partKey(c),parent,color:colorOf(c),c:orig.get(c).pos.toArray(),...tfOut(c)});
       }
     });
     data.roots[r.name]={groups,parts};
   });
-  localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+  return data;
+}
+function saveLayout(){
+  localStorage.setItem(SAVE_KEY,JSON.stringify(layoutData()));
   showSaveStatus('保存しました');
 }
+// ===== JSON の書き出し・読み込み（ブラウザをまたいで配置を受け渡す。中身は保存と同じ形） =====
+const pageName=location.pathname.split('/').pop().replace(/\.html$/,'')||'workspace';
+function exportLayout(){
+  const d=new Date(), z=n=>String(n).padStart(2,'0');
+  const name=`${pageName}-layout-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`;
+  const url=URL.createObjectURL(new Blob([JSON.stringify(layoutData(),null,1)],{type:'application/json'}));
+  const a=document.createElement('a'); a.href=url; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showSaveStatus('書き出しました');
+}
+const importInput=document.getElementById('import-file');
+importInput.addEventListener('change',async()=>{
+  const file=importInput.files[0]; importInput.value='';
+  if(!file)return;
+  try{
+    const data=JSON.parse(await file.text());
+    if(!data||!data.roots)throw new Error('配置の JSON ではありません');
+    applyLayout(data);
+    showSaveStatus('読み込みました。残すなら 💾 保存');
+  }catch(err){console.error(err);showSaveStatus('読み込めませんでした');}
+});
+document.getElementById('export-btn').addEventListener('click',exportLayout);
+document.getElementById('import-btn').addEventListener('click',()=>importInput.click());
 function applyLayout(data){
+  if(walk)stopWalk();
   allMeshes.forEach(r=>{
     const d=data.roots[r.name]; if(!d)return;
     numberParts(r); ensureOrig(leavesOf(r)[0]);
@@ -706,6 +771,12 @@ function applyLayout(data){
       const parent=pd.parent?byName[pd.parent]:r;
       if(m.parent!==parent)parent.add(m);
       tfIn(m,pd);
+      // 保存したあとで形が変わり、パーツの原点（形の中心）が動いていたら、その分を今の向き・倍率で足して、形の置き場所を保つ
+      const c0=pd.c||m.userData.legacyCenter;
+      if(c0){
+        const d=orig.get(m).pos.clone().sub(new THREE.Vector3().fromArray(c0));
+        if(d.lengthSq()>1e-10)m.position.add(d.multiply(m.scale).applyQuaternion(m.quaternion));
+      }
       if(pd.color)setPartColor(m,pd.color);else resetPartColor(m);
     });
   });
@@ -740,15 +811,19 @@ updateGroupBtns();
 // 頭の後ろに胴、脚は卵形で先に小さな爪、手・脚・しっぽは灰色の棒でつなぐ
 // 原点 = 足元の中心（地面）。+z が正面（顔の向き）。単位 1 = 頭の半径くらい
 const BLUEDOG={
-  HEAD:{r:1.05,pos:[0,2.0,0.55]},
-  BODY:{r:0.88,pos:[0,1.95,-0.75],sz:1.1},
-  EYE:{az:24,el:18,w:0.26,h:0.33},        // 大きい目（方位角・仰角・幅・高さ）
+  HEAD:{r:1.05,pos:[0,2.0,0.55],seg:[8,6]},   // seg = 分割数（横・縦。SEG の倍率は掛けない）
+  BODY:{r:0.88,pos:[0,1.95,-0.75],sz:1.1,seg:[6,5]},
+  EYE:{az:24,el:18,w:0.26,h:0.33,seg:6,lift:0.015},   // 大きい目（方位角・仰角・幅・高さ・板の角の数・頭の表面から浮かせる量。点も同じ角の数と浮かせ方）
   DOT:{az:62,el:6,w:0.12,h:0.15},         // 横の小さい目
-  TEETH:{n:6,el:-14,az:36,r:0.06,h:0.2},  // 牙（本数・仰角・左右に並べる範囲・太さ・長さ）
-  MITT:{w:0.34,h:0.5,d:0.24,x:0.3,y:1.3,z:1.62,tilt:0.2},  // 口をおさえる手
+  TEETH:{el:-14,az:[7.2,36],h:0.22,t:0.03,top:0.03},  // 牙：爪と同じ王冠の形の板を左右に 1 枚ずつ（仰角・先の並ぶ方位角の範囲・長さ・厚み・頭の表面から上へ埋める量）
+  MITT:{w:0.34,h:0.5,d:0.24,x:0.3,y:1.3,z:1.62,tilt:0.2,seg:[6,4]},  // 口をおさえる手（脚も同じ形・同じ分割数）
   ROD:0.05,                               // 灰色の棒の半径
-  TAIL:{from:[0,2.35,-1.6],to:[0,3.15,-2.2],r:0.24},
+  TAIL:{from:[0,2.35,-1.6],to:[0,3.15,-2.2],r:0.24,seg:[5,3]},
+  // 爪：3 本の三角を 1 枚にまとめた王冠の形の板。点は下の辺の真ん中を原点、上（y）が先の向き。w は先から先までの幅
+  CLAW:{w:0.3,t:0.03,tilt:0.5,y:0.1,z:0.45,
+    pts:[[-0.31,0],[-0.5,0.71],[-0.125,0.34],[0,0.83],[0.12,0.34],[0.5,0.71],[0.31,0]]},
   OUTLINE:0.035,
+  GLOW:0.1,                               // 自発光（色に対する割合）
   SEG:0.3,                                // 分割数の倍率（元の分割数に掛ける）
 };
 const BLUEDOG_COLORS={skin:0x8eeafa,shade:0x5fbfd6,hole:0x18216a,rod:0x8b9196,tooth:0xffffff,line:0x2a3474};
@@ -758,7 +833,7 @@ function createBluedog(C=BLUEDOG_COLORS){
   const g=new THREE.Group(); g.name='bluedog';
 
   // 2 段のトゥーン（明るい面と影の面）
-  const lambert=c=>{const m=new THREE.MeshLambertMaterial({color:c,emissive:new THREE.Color(c).multiplyScalar(0.4)});m.userData.emissiveK=0.4;return m;};
+  const lambert=c=>{const m=new THREE.MeshLambertMaterial({color:c,emissive:new THREE.Color(c).multiplyScalar(B.GLOW)});m.userData.emissiveK=B.GLOW;return m;};
   const M={
     skin:lambert(C.skin), rod:lambert(C.rod), tooth:lambert(C.tooth),
     hole:new THREE.MeshBasicMaterial({color:C.hole}),
@@ -789,48 +864,74 @@ function createBluedog(C=BLUEDOG_COLORS){
     return {p:head.clone().addScaledVector(n,r),n};
   };
 
-  // 棒（a から b へ）
+  // 継ぎ目（経度 0 と 360°）と極で重なっている頂点をまとめる。位置と法線が同じなので見た目は変わらない（uv は使わないので捨てる）
+  const weld=geo=>{geo.deleteAttribute('uv');return mergeVertices(geo);};
+  const sphere=(r,w,h)=>weld(new THREE.SphereGeometry(r,w,h));
+
+  // 棒（a から b へ）。両端は手・脚・胴に埋まって見えないので、ふたなしの筒
   const rod=(a,b,name)=>{
     a=V(a); b=V(b);
     const len=a.distanceTo(b);
-    const geo=new THREE.CylinderGeometry(B.ROD,B.ROD,len,seg(8));
+    const geo=weld(new THREE.CylinderGeometry(B.ROD,B.ROD,len,seg(8),1,true));
     geo.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize()));
     geo.translate(...a.clone().add(b).multiplyScalar(0.5).toArray());
     return add(geo,M.rod,name);
   };
 
   // --- 頭と胴 ---
-  const headGeo=new THREE.SphereGeometry(B.HEAD.r,seg(32),seg(24,2)); headGeo.translate(...B.HEAD.pos);
+  const headGeo=sphere(B.HEAD.r,...B.HEAD.seg); headGeo.translate(...B.HEAD.pos);
   add(headGeo,M.skin,'頭');
-  const bodyGeo=new THREE.SphereGeometry(B.BODY.r,seg(32),seg(24,2)); bodyGeo.scale(1,1,B.BODY.sz); bodyGeo.translate(...B.BODY.pos);
-  add(bodyGeo,M.skin,'胴');
+  const bodyGeo=sphere(B.BODY.r,...B.BODY.seg); bodyGeo.scale(1,1,B.BODY.sz); bodyGeo.translate(...B.BODY.pos);
+  add(bodyGeo,M.skin,'胴').userData.walk={body:true};
 
-  // --- 目（頭の表面に貼った平たい楕円） ---
+  // --- 目（楕円の板を頭の表面に沿わせて貼る） ---
+  // 板の点を、目の中心で頭に接する面に置いてから、頭の中心から見た向きのまま球の表面（少し外）へ押し出す
   const hole=(az,el,w,h,name)=>{
-    const {p,n}=onHead(az,el,B.HEAD.r-0.02);
-    const geo=new THREE.SphereGeometry(1,seg(20),seg(12,2)); geo.scale(w,h,0.06);
-    geo.applyQuaternion(new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(new THREE.Vector3(),n.clone().negate(),new THREE.Vector3(0,1,0))));
-    geo.translate(p.x,p.y,p.z);
-    add(geo,M.hole,name,false);
+    const {n}=onHead(az,el);
+    const tx=new THREE.Vector3(0,1,0).cross(n).normalize(), ty=n.clone().cross(tx);
+    const geo=new THREE.CircleGeometry(1,B.EYE.seg); geo.deleteAttribute('uv'); geo.deleteAttribute('normal');
+    const pos=geo.attributes.position, q=new THREE.Vector3();
+    for(let i=0;i<pos.count;i++){
+      q.copy(n).multiplyScalar(B.HEAD.r).addScaledVector(tx,pos.getX(i)*w).addScaledVector(ty,pos.getY(i)*h)
+        .normalize().multiplyScalar(B.HEAD.r+B.EYE.lift).add(head);
+      pos.setXYZ(i,q.x,q.y,q.z);
+    }
+    const m=add(geo,M.hole,name,false);
+    // 目を板にする前（平たい楕円の球）の原点。元の原点（c）が入っていない古い保存を読むときの補正に使う
+    m.userData.legacyCenter=onHead(az,el,B.HEAD.r-0.02).p.toArray();
   };
   for(const s of [-1,1]){
     hole(s*B.EYE.az,B.EYE.el,B.EYE.w,B.EYE.h,s<0?'右目':'左目');
     hole(s*B.DOT.az,B.DOT.el,B.DOT.w,B.DOT.h,s<0?'右の点':'左の点');
   }
 
-  // --- 牙（口のあたりに下向きの小さな円錐） ---
+  // --- 牙（口のあたりに、王冠の形の板を先を下にして左右に 1 枚ずつ。頭のまるみに沿って曲げる） ---
+  // 板の横（x）を頭の表面に沿った長さとして、頭の縦の軸のまわりに巻きつける。3 つの先は方位角 az[0]〜az[1] に並ぶ
   const T=B.TEETH;
-  for(let i=0;i<T.n;i++){
-    const az=-T.az+2*T.az*i/(T.n-1);
-    const {p}=onHead(az,T.el,B.HEAD.r+0.01);
-    const geo=new THREE.ConeGeometry(T.r,T.h,seg(6)); geo.rotateX(Math.PI); geo.translate(p.x,p.y-T.h*0.35,p.z);
-    add(geo,M.tooth,'牙',i===0);
-  }
+  const fangGeo=s=>{
+    const R=B.HEAD.r*Math.cos(deg(T.el));                      // その高さでの頭の水平の半径
+    const y0=head.y+B.HEAD.r*Math.sin(deg(T.el))+T.top;         // 板の上の辺の高さ
+    const a0=deg(T.az[0]), a1=deg(T.az[1]);
+    const w=R*(a1-a0), hs=T.h/0.83;                             // 0.83 = 形の点の真ん中の先の高さ
+    const pts=B.CLAW.pts.map(([px,py])=>new THREE.Vector2(-s*px*w,-py*hs));   // 先を下へ。左右で鏡写し
+    let geo=new THREE.ExtrudeGeometry(new THREE.Shape(pts),{depth:T.t,bevelEnabled:false});
+    geo.translate(0,0,-T.t/2);
+    geo.deleteAttribute('normal'); geo.deleteAttribute('uv');
+    geo=mergeVertices(geo);
+    const pos=geo.attributes.position, ac=s*(a0+a1)/2;
+    for(let i=0;i<pos.count;i++){
+      const a=ac+pos.getX(i)/R, rr=R+pos.getZ(i);
+      pos.setXYZ(i,head.x+rr*Math.sin(a),y0+pos.getY(i),head.z+rr*Math.cos(a));
+    }
+    geo.computeVertexNormals();
+    return geo;
+  };
+  for(const s of [-1,1])add(fangGeo(s),M.tooth,'牙');
 
   // --- 口をおさえる手（平たい楕円）と、胸からの棒 ---
   const MI=B.MITT;
   for(const s of [-1,1]){
-    const geo=new THREE.SphereGeometry(1,seg(24),seg(16,2)); geo.scale(MI.w,MI.h,MI.d);
+    const geo=sphere(1,...MI.seg); geo.scale(MI.w,MI.h,MI.d);
     geo.rotateZ(-s*MI.tilt); geo.rotateX(-0.25);
     geo.translate(s*MI.x,MI.y,MI.z);
     add(geo,M.skin,s<0?'右手':'左手');
@@ -838,35 +939,136 @@ function createBluedog(C=BLUEDOG_COLORS){
   }
 
   // --- 脚（手と同じ平たい楕円を立て、下端を地面に）と爪 ---
-  const leg=(x,z,yaw,splay,name)=>{
-    const geo=new THREE.SphereGeometry(1,seg(24),seg(16,2)); geo.scale(MI.w,MI.h,MI.d); geo.translate(0,MI.h,0);
+  const CL=B.CLAW;
+  const clawGeo=()=>{
+    const sh=new THREE.Shape(CL.pts.map(([px,py])=>new THREE.Vector2(px*CL.w,py*CL.w)));
+    let geo=new THREE.ExtrudeGeometry(sh,{depth:CL.t,bevelEnabled:false});
+    geo.translate(0,0,-CL.t/2);
+    // 輪郭線を法線方向に押し出すので、角で切れないよう頂点をまとめてなめらかな法線にする
+    geo.deleteAttribute('normal'); geo.deleteAttribute('uv');
+    geo=mergeVertices(geo); geo.computeVertexNormals();
+    geo.rotateX(Math.PI/2+CL.tilt);           // 先（+y）を前へ、少し下向きに
+    geo.translate(0,CL.y,MI.d*CL.z);
+    return geo;
+  };
+  // userData.walk に歩くときの役割を付ける（leg = 'FR' 右前 / 'FL' 左前 / 'BR' 右後ろ / 'BL' 左後ろ、part = 'leg' / 'claw' / 'rod'）
+  const leg=(x,z,yaw,splay,name,tag)=>{
+    const geo=sphere(1,...MI.seg); geo.scale(MI.w,MI.h,MI.d); geo.translate(0,MI.h,0);
     geo.rotateZ(splay); geo.rotateY(yaw); geo.translate(x,0,z);
-    add(geo,M.skin,name);
-    // 爪：つま先に白い円錐を 3 本、前へ向けて
-    for(let k=-1;k<=1;k++){
-      const c=new THREE.ConeGeometry(0.045,0.16,seg(5));
-      c.rotateX(Math.PI/2+0.5); c.translate(k*0.1,0.06,MI.d*0.6+0.02);
-      c.rotateZ(splay); c.rotateY(yaw); c.translate(x,0,z);
-      add(c,M.tooth,'爪',k===0);
-    }
+    add(geo,M.skin,name).userData.walk={leg:tag,part:'leg'};
+    // 爪：王冠の形の板 1 枚を、つま先から前へ（少し下向きに）出す。付け根は脚に埋める
+    add(clawGeo().rotateZ(splay).rotateY(yaw).translate(x,0,z),M.tooth,'爪').userData.walk={leg:tag,part:'claw'};
     const top=new THREE.Vector3(0,MI.h*2-0.05,0).applyAxisAngle(new THREE.Vector3(0,0,1),splay).applyAxisAngle(new THREE.Vector3(0,1,0),yaw).add(new THREE.Vector3(x,0,z));
     return top;
   };
   for(const s of [-1,1]){
     // 前脚：頭の横へ開く
-    const tf=leg(s*1.05,0.7,s*0.35,s*0.35,s<0?'右前脚':'左前脚');
-    rod(tf.toArray(),[s*0.55,1.45,0.45],'脚の棒');
+    const F=s<0?'FR':'FL', Bk=s<0?'BR':'BL';
+    const tf=leg(s*1.05,0.7,s*0.35,s*0.35,s<0?'右前脚':'左前脚',F);
+    rod(tf.toArray(),[s*0.55,1.45,0.45],'脚の棒').userData.walk={leg:F,part:'rod'};
     // 後ろ脚：胴の下
-    const tb=leg(s*0.42,-0.85,0,0,s<0?'右後ろ脚':'左後ろ脚');
-    rod(tb.toArray(),[s*0.38,1.3,-0.85],'脚の棒');
+    const tb=leg(s*0.42,-0.85,0,0,s<0?'右後ろ脚':'左後ろ脚',Bk);
+    rod(tb.toArray(),[s*0.38,1.3,-0.85],'脚の棒').userData.walk={leg:Bk,part:'rod'};
   }
 
   // --- しっぽ：棒の先に玉 ---
-  rod(B.TAIL.from,B.TAIL.to,'しっぽの棒');
-  const ballGeo=new THREE.SphereGeometry(B.TAIL.r,seg(20),seg(14,2)); ballGeo.translate(...B.TAIL.to);
-  add(ballGeo,M.skin,'しっぽの玉');
+  rod(B.TAIL.from,B.TAIL.to,'しっぽの棒').userData.walk={tail:'rod'};
+  const ballGeo=sphere(B.TAIL.r,...B.TAIL.seg); ballGeo.translate(...B.TAIL.to);
+  add(ballGeo,M.skin,'しっぽの玉').userData.walk={tail:'ball'};
 
   return g;
+}
+
+// ===== 歩くモーション =====
+// createBluedogWalk(root) で、いまの姿勢を基本の形として覚え、update(t, amp) で歩く姿勢にする。stop() で基本の形に戻す
+// 脚：対角の 2 本ずつ（右前と左後ろ / 左前と右後ろ）を交互に、腰（脚の棒の胴側の端）を軸に前後へ振る。前へ振る間は足を少し上げる
+// 体：胴・頭・手など脚としっぽ以外を、一歩ごとに少し上下させる
+// しっぽ：付け根（しっぽの棒の胴側の端）を軸に左右へ振る
+// amp：動きの大きさ（0〜1。立ち止まるときに 0 へ寄せると、なめらかに基本の形へ戻る）
+// 動かすもの：root の直下に動く部分ごとのまとまり（userData.walkUnit。createBluedog({merge:true})）があればそれを、なければパーツ 1 つずつ
+//   パーツ 1 つずつのときは userData.walk の役割で見分け、腰・しっぽの付け根は棒の頂点から求める（bluedogPivots）
+// 計算は root の座標（モデル単位）で行うので、root ごと動かしたり回したりしてよい。パーツがグループに入っていても動く
+const BLUEDOG_WALK={speed:1, swing:0.45, lift:0.1, bob:0.035, wag:0.4};   // 1 秒あたりの歩数の倍率（1 で 1.6 歩）・脚の振り幅[rad]・足を上げる高さ・体の上下・しっぽの振り幅[rad]（長さはモデル単位）
+
+// 腰（脚ごと）としっぽの付け根を、root の座標で求める。脚の棒のうち脚からいちばん遠い頂点 / しっぽの棒のうち胴にいちばん近い頂点
+function bluedogPivots(root){
+  root.updateMatrixWorld(true);
+  const rootInv=root.matrixWorld.clone().invert();
+  const rel=x=>rootInv.clone().multiply(x.matrixWorld);
+  const parts=[]; root.traverse(c=>{if(c.isMesh&&!c.userData.outline&&c.userData.walk)parts.push(c);});
+  const center=m=>{m.geometry.computeBoundingBox();return m.geometry.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(rel(m));};
+  const rodEnd=(rod,ref,far)=>{
+    const pos=rod.geometry.attributes.position, v=new THREE.Vector3(), r=rel(rod); let best=null, bd=far?-1:1e9;
+    for(let i=0;i<pos.count;i++){
+      v.fromBufferAttribute(pos,i).applyMatrix4(r);
+      const d=v.distanceTo(ref);
+      if(far?d>bd:d<bd){bd=d;best=v.clone();}
+    }
+    return best;
+  };
+  const out={};
+  for(const tag of ['FR','FL','BR','BL']){
+    const legM=parts.find(m=>m.userData.walk.leg===tag&&m.userData.walk.part==='leg');
+    const rod=parts.find(m=>m.userData.walk.leg===tag&&m.userData.walk.part==='rod');
+    if(legM&&rod)out[tag]=rodEnd(rod,center(legM),true);
+  }
+  const tailRod=parts.find(m=>m.userData.walk.tail==='rod'), bodyM=parts.find(m=>m.userData.walk.body);
+  if(tailRod&&bodyM)out.tail=rodEnd(tailRod,center(bodyM),false);
+  return out;
+}
+
+function createBluedogWalk(root,opt={}){
+  const o={...BLUEDOG_WALK,...opt};
+  root.updateMatrixWorld(true);
+  const rootInv=root.matrixWorld.clone().invert();
+  const rel=x=>rootInv.clone().multiply(x.matrixWorld);                        // root の座標での変形
+  // 動かすもの：{obj, role('FR'…'BL' / 'tail' / 'body'), pivot}
+  let movers;
+  const units=root.children.filter(c=>c.userData.walkUnit);
+  if(units.length){
+    movers=units.map(u=>({obj:u,role:u.userData.walkUnit,pivot:u.userData.pivot&&new THREE.Vector3().fromArray(u.userData.pivot)}));
+  }else{
+    const pv=bluedogPivots(root);
+    movers=[];
+    root.traverse(c=>{
+      if(!c.isMesh||c.userData.outline)return;
+      const w=c.userData.walk||{};
+      const role=w.leg||(w.tail?'tail':'body');
+      movers.push({obj:c,role,pivot:pv[role]});
+    });
+  }
+  movers.forEach(m=>{m.base={p:m.obj.position.clone(),q:m.obj.quaternion.clone(),s:m.obj.scale.clone(),r:rel(m.obj),pinv:rel(m.obj.parent).invert()};});
+
+  const AX=new THREE.Vector3(1,0,0), UP=new THREE.Vector3(0,1,0);
+  const M=new THREE.Matrix4(), R=new THREE.Matrix4(), T=new THREE.Matrix4(), B=new THREE.Matrix4();
+  // root の座標での変形 m4 を、親の座標での変形にして入れる
+  const put=(m,m4)=>M.multiplyMatrices(m.base.pinv,m4).decompose(m.obj.position,m.obj.quaternion,m.obj.scale);
+  // root の座標で：pivot を通る axis まわりに angle 回し、dy だけ上へ
+  const turn=(m,axis,angle,dy)=>{
+    const p=m.pivot;
+    R.makeRotationAxis(axis,angle);
+    T.makeTranslation(p.x,p.y+dy,p.z).multiply(R).multiply(B.makeTranslation(-p.x,-p.y,-p.z));
+    return T.multiply(m.base.r);
+  };
+  const PHASE={FR:0,BL:0,FL:Math.PI,BR:Math.PI};
+  return {
+    update(t,amp=1){
+      const ph=t*Math.PI*2*0.8*o.speed;                // 1 周で 2 歩
+      const bob=amp*o.bob*(0.5-0.5*Math.cos(ph*2));
+      for(const m of movers){
+        if(m.role in PHASE&&m.pivot){
+          const a=ph+PHASE[m.role];
+          // 前（+z）へ振るとき負の角度。前へ振っている間だけ足を上げる
+          put(m,turn(m,AX,-amp*o.swing*Math.sin(a),amp*o.lift*Math.max(0,Math.cos(a))));
+        }else if(m.role==='tail'&&m.pivot){
+          put(m,turn(m,UP,amp*o.wag*Math.sin(ph*2),bob));
+        }else{
+          put(m,T.makeTranslation(0,bob,0).multiply(m.base.r));
+        }
+      }
+    },
+    stop(){movers.forEach(m=>{m.obj.position.copy(m.base.p);m.obj.quaternion.copy(m.base.q);m.obj.scale.copy(m.base.s);});},
+  };
 }
 
 const dog=createBluedog();
