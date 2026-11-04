@@ -25,10 +25,14 @@
 #drag-panel button.on { background: #ffe2cc; }
 #drag-panel .log-toggle { background: none; padding: 0; margin: 0; font-size: 11px; color: #999; font-weight: bold; letter-spacing: 0.05em; }
 #drag-tools { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; font-family: sans-serif; }
-#drag-tools button { background: rgba(255,255,255,0.9); border: 2px solid transparent; border-radius: 8px; padding: 8px 12px; font-size: 13px; cursor: pointer; color: #444; text-align: left; }
+#drag-tools button { background: rgba(255,255,255,0.9); border: 2px solid transparent; border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; color: #444; text-align: left; }
 #drag-tools button.on { background: #ffe2cc; border-color: #ff9a5a; }
 #drag-tools button:disabled { opacity: 0.45; cursor: default; }
 #eb-label .part.grp { font-weight: bold; }
+#drag-tools .color-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 3px 6px 3px 10px; font-size: 12px; color: #444; }
+#drag-tools .color-row input { width: 40px; height: 24px; border: none; padding: 0; background: none; cursor: pointer; }
+#drag-tools .color-row input:disabled { opacity: 0.35; cursor: default; }
+#save-status { font-size: 11px; color: #777; min-height: 15px; text-align: right; width: 0; min-width: 100%; }
 #drag-tools hr { border: none; height: 4px; margin: 0; }
 #eb-label .part { cursor: pointer; padding: 0 6px; border-radius: 4px; white-space: nowrap; }
 #eb-label .part:hover { background: #eef1f4; }
@@ -44,7 +48,7 @@
       <button id="hud-close" title="一覧をしまう">◀</button>
     </div>
     <div class="hud-list" id="hud-list"><span style="color:#ccc">（なし）</span></div>
-    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>空いている所をドラッグで回転 / スクロールでズーム</div>
+    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>空いている所をドラッグで回転 / スクロールでズーム</div>
   </div>
   <button id="hud-open" title="一覧を出す">▶ 一覧</button>
   <button id="wf-btn">🔲 ワイヤーフレーム ON</button>
@@ -60,11 +64,18 @@
     <hr>
     <button id="drag-undo" title="⌘/Ctrl+Z">↩ 1つ戻す</button>
     <button id="drag-reset">⟲ 全部戻す</button>
+    <hr>
+    <label class="color-row">🎨 色<input type="color" id="part-color" disabled></label>
+    <hr>
+    <button id="save-btn" title="⌘/Ctrl+S">💾 保存</button>
+    <button id="load-btn">📂 保存を開く</button>
+    <button id="clear-save-btn">🗑 保存を消す</button>
+    <div id="save-status"></div>
   </div>
   <div id="drag-panel">
     <button class="log-toggle" id="log-toggle">▸ 動かしたパーツ（0）</button>
     <div id="log-body" hidden>
-      <div class="hud-title">ずれ x, y, z / 回転 x°, y°, z° / 倍率 x, y, z</div>
+      <div class="hud-title">ずれ x, y, z / 回転 x°, y°, z° / 倍率 x, y, z / 色</div>
       <div id="drag-list"><span style="color:#ccc">（なし）</span></div>
       <button id="drag-copy">📋 コピー</button>
     </div>
@@ -378,7 +389,7 @@ function selectParts(list){
   sel=sels.length===1?sels[0]:null;
   if(sel){ensureOrig(sel);tc.attach(sel);tc.setMode(mode);tc.setSpace(mode==='scale'?'local':'world');}
   else tc.detach();
-  showBoxes(); markHUD(); updateGroupBtns();
+  showBoxes(); markHUD(); updateGroupBtns(); updateColorInput();
 }
 const selectPart=m=>selectParts(m?[m]:[]);
 function toggleSelect(o){
@@ -541,8 +552,10 @@ function offsets(){
     euler.setFromQuaternion(dq);
     const rot=[euler.x,euler.y,euler.z].map(v=>r2(THREE.MathUtils.radToDeg(v)));
     const sc=t.scale.divide(o.scale).toArray().map(r2);
-    if(d.lengthSq()<1e-6&&rot.every(v=>v===0)&&sc.every(v=>v===1))return;
-    out.push({name:m.name,no:m.userData.no||0,dx:r2(d.x),dy:r2(d.y),dz:r2(d.z),rx:rot[0],ry:rot[1],rz:rot[2],sx:sc[0],sy:sc[1],sz:sc[2]});
+    const col=colorOf(m);
+    const color=col&&col!==hex(m.userData.origMat.color)?col:null;
+    if(d.lengthSq()<1e-6&&rot.every(v=>v===0)&&sc.every(v=>v===1)&&!color)return;
+    out.push({name:m.name,no:m.userData.no||0,dx:r2(d.x),dy:r2(d.y),dz:r2(d.z),rx:rot[0],ry:rot[1],rz:rot[2],sx:sc[0],sy:sc[1],sz:sc[2],...(color?{color}:{})});
   });
   return out;
 }
@@ -551,7 +564,8 @@ function updateDragList(){
   dragList.innerHTML=o.length
     ?o.map(e=>`${e.name}${e.no?' #'+e.no:''}: ${e.dx}, ${e.dy}, ${e.dz}`
       +((e.rx||e.ry||e.rz)?` / ${e.rx}°, ${e.ry}°, ${e.rz}°`:'')
-      +((e.sx!==1||e.sy!==1||e.sz!==1)?` / ×${e.sx}, ${e.sy}, ${e.sz}`:'')).join('<br>')
+      +((e.sx!==1||e.sy!==1||e.sz!==1)?` / ×${e.sx}, ${e.sy}, ${e.sz}`:'')
+      +(e.color?` / <span style="color:${e.color}">■</span>${e.color}`:'')).join('<br>')
     :'<span style="color:#ccc">（なし）</span>';
   logToggle.textContent=`${logBody.hidden?'▸':'▾'} 動かしたパーツ（${o.length}）`;
 }
@@ -573,7 +587,7 @@ document.getElementById('drag-reset').addEventListener('click',()=>{
     const gs=[]; r.traverse(c=>{if(c.userData.isPartGroup)gs.push(c);});
     gs.reverse().forEach(ungroupRaw);
   });
-  orig.forEach((o,m)=>{m.position.copy(o.pos);m.quaternion.copy(o.quat);m.scale.copy(o.scale);});
+  orig.forEach((o,m)=>{m.position.copy(o.pos);m.quaternion.copy(o.quat);m.scale.copy(o.scale);resetPartColor(m);});
   history.length=0; updateHUD(); showBoxes(); updateDragList();
 });
 mirBtn.addEventListener('click',()=>{
@@ -593,12 +607,132 @@ window.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if((e.metaKey||e.ctrlKey)&&k==='g'){e.preventDefault();if(e.shiftKey)ungroupSelected();else groupSelected();return;}
   if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();undo();return;}
+  if((e.metaKey||e.ctrlKey)&&k==='s'){e.preventDefault();saveLayout();return;}
   if(e.metaKey||e.ctrlKey||e.altKey)return;
   if(k==='g')setMode('translate');
   if(k==='r')setMode('rotate');
   if(k==='s')setMode('scale');
   if(e.key==='Escape')selectParts([]);
 });
+// ===== 色 =====
+// 選んだパーツ（グループなら中のパーツ全部）の色を変える。左右対称 ON なら鏡写しの相手も同じ色に
+// マテリアルは共有なので、はじめて色を変えるときにそのパーツ用に複製する（userData.origMat に元のマテリアル）
+// 自発光は material.userData.emissiveK（色に対する割合）があれば色に合わせて変える
+const colorInput=document.getElementById('part-color');
+const hex=c=>'#'+c.getHexString();
+function colorTargets(){
+  const set=new Set();
+  sels.forEach(s=>leavesOf(s).forEach(l=>{
+    set.add(l);
+    if(mirrorOn){const m=leafMirror(l);if(m&&m!=='self')set.add(m);}
+  }));
+  return [...set].filter(l=>l.material&&l.material.color);
+}
+function setPartColor(m,c){
+  if(!m.userData.origMat){m.userData.origMat=m.material;m.material=m.material.clone();}
+  m.material.color.set(c);
+  const k=m.material.userData.emissiveK;
+  if(k!==undefined&&m.material.emissive)m.material.emissive.copy(m.material.color).multiplyScalar(k);
+}
+function resetPartColor(m){
+  if(!m.userData.origMat)return;
+  m.material.dispose();
+  m.material=m.userData.origMat; delete m.userData.origMat;
+}
+const colorOf=m=>m.userData.origMat?hex(m.material.color):null;   // 変えた色（変えていなければ null）
+function updateColorInput(){
+  const t=colorTargets();
+  colorInput.disabled=!t.length;
+  if(t.length)colorInput.value=hex(t[0].material.color);
+}
+let colorStep=null;   // 色を変える前の状態 [[mesh, 元の色 or null], ...]
+colorInput.addEventListener('input',()=>{
+  const t=colorTargets();
+  if(!colorStep)colorStep=t.map(m=>[m,colorOf(m)]);
+  t.forEach(m=>setPartColor(m,colorInput.value));
+  updateDragList();
+});
+colorInput.addEventListener('change',()=>{
+  if(!colorStep)return;
+  const prev=colorStep; colorStep=null;
+  history.push({undo:()=>{prev.forEach(([m,c])=>c?setPartColor(m,c):resetPartColor(m));updateColorInput();}});
+});
+
+// ===== 配置の保存（ブラウザの localStorage） =====
+// 保存するもの：作ったグループ（親・位置・向き・倍率・鏡写しの相手）と、パーツの親・位置・向き・倍率・変えた色
+// パーツは「名前 #番号」で見分ける。開いたときに保存があれば自動でその配置にする
+const SAVE_KEY='workspace-layout:'+location.pathname;
+const saveStatus=document.getElementById('save-status');
+const tfOut=o=>({p:o.position.toArray(),q:o.quaternion.toArray(),s:o.scale.toArray()});
+const tfIn=(o,t)=>{o.position.fromArray(t.p);o.quaternion.fromArray(t.q);o.scale.fromArray(t.s);};
+const partKey=m=>m.name+(m.userData.no?'#'+m.userData.no:'');
+function saveLayout(){
+  const data={v:1,groupNo,roots:{}};
+  allMeshes.forEach(r=>{
+    if(!r.isGroup)return;
+    numberParts(r);
+    const groups=[],parts=[];
+    r.traverse(c=>{
+      if(c===r||c.userData.outline)return;
+      const parent=c.parent===r?null:c.parent.name;
+      if(c.userData.isPartGroup){
+        const mir=c.userData.mirror;
+        groups.push({name:c.name,parent,mirror:mir==='self'?'self':mir?mir.name:null,...tfOut(c)});
+      }else if(c.isMesh){
+        parts.push({key:partKey(c),parent,color:colorOf(c),...tfOut(c)});
+      }
+    });
+    data.roots[r.name]={groups,parts};
+  });
+  localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+  showSaveStatus('保存しました');
+}
+function applyLayout(data){
+  allMeshes.forEach(r=>{
+    const d=data.roots[r.name]; if(!d)return;
+    numberParts(r); ensureOrig(leavesOf(r)[0]);
+    // いまのグループを解除して、パーツを元に戻してから組み立て直す
+    const gs=[]; r.traverse(c=>{if(c.userData.isPartGroup)gs.push(c);});
+    gs.reverse().forEach(ungroupRaw);
+    const byName={};
+    d.groups.forEach(gd=>{
+      const g=new THREE.Group(); g.name=gd.name; g.userData.isPartGroup=true;
+      tfIn(g,gd); (gd.parent?byName[gd.parent]:r).add(g); byName[gd.name]=g;
+    });
+    d.groups.forEach(gd=>{byName[gd.name].userData.mirror=gd.mirror==='self'?'self':(gd.mirror&&byName[gd.mirror])||undefined;});
+    const leaves={}; leavesOf(r).forEach(l=>leaves[partKey(l)]=l);
+    d.parts.forEach(pd=>{
+      const m=leaves[pd.key]; if(!m)return;
+      const parent=pd.parent?byName[pd.parent]:r;
+      if(m.parent!==parent)parent.add(m);
+      tfIn(m,pd);
+      if(pd.color)setPartColor(m,pd.color);else resetPartColor(m);
+    });
+  });
+  groupNo=Math.max(groupNo,data.groupNo||0);
+  history.length=0;
+  updateHUD(); selectParts([]); updateDragList();
+}
+function loadLayout(){
+  const raw=localStorage.getItem(SAVE_KEY);
+  if(!raw){showSaveStatus('保存はありません');return false;}
+  try{applyLayout(JSON.parse(raw));showSaveStatus('保存した配置を開きました');return true;}
+  catch(err){console.error(err);showSaveStatus('保存を読めませんでした');return false;}
+}
+let saveTimer=0;
+function showSaveStatus(t){
+  saveStatus.textContent=t+'（'+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})+'）';
+  clearTimeout(saveTimer); saveTimer=setTimeout(()=>saveStatus.textContent=hasSave()?'保存あり':'',4000);
+}
+const hasSave=()=>!!localStorage.getItem(SAVE_KEY);
+document.getElementById('save-btn').addEventListener('click',saveLayout);
+document.getElementById('load-btn').addEventListener('click',loadLayout);
+document.getElementById('clear-save-btn').addEventListener('click',()=>{
+  if(!hasSave())return;
+  if(!confirm('保存した配置を消しますか？（いま画面にある配置はそのまま）'))return;
+  localStorage.removeItem(SAVE_KEY); showSaveStatus('保存を消しました');
+});
+
 updateGroupBtns();
 
 // ===== bluedog =====
@@ -624,7 +758,7 @@ function createBluedog(C=BLUEDOG_COLORS){
   const g=new THREE.Group(); g.name='bluedog';
 
   // 2 段のトゥーン（明るい面と影の面）
-  const lambert=c=>new THREE.MeshLambertMaterial({color:c,emissive:new THREE.Color(c).multiplyScalar(0.4)});
+  const lambert=c=>{const m=new THREE.MeshLambertMaterial({color:c,emissive:new THREE.Color(c).multiplyScalar(0.4)});m.userData.emissiveK=0.4;return m;};
   const M={
     skin:lambert(C.skin), rod:lambert(C.rod), tooth:lambert(C.tooth),
     hole:new THREE.MeshBasicMaterial({color:C.hole}),
@@ -739,6 +873,8 @@ const dog=createBluedog();
 dog.scale.setScalar(2.2);
 dog.position.y=-5;
 addObject(dog);
+updateHUD();
+if(hasSave())loadLayout(); else saveStatus.textContent='';
 
 
 resize();
