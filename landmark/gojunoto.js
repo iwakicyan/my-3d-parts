@@ -12,7 +12,7 @@ const GOJUNOTO={
   ROOF:{outer:[3.0,2.9,2.8],rise:0.45,thick:0.2,lift:0.3,p:1.2},  // 中の屋根 3 段（下から）
   TOP:{outer:3.0,rise:2.4,thick:0.2,lift:0.4,p:1.6},                // いちばん上の四角錐の屋根
   SEG:{side:6,radial:4},                        // 屋根の分割数（辺に沿って・内から外へ）
-  COLOR:{wood:0xe0c89a,body:0x9a8774,line:0x2a2d33},   // body は胴と屋根の裏
+  COLOR:{wood:0xe0c89a,body:0x9a8774,under:0x000000,line:0x2a2d33},   // under は屋根の裏（地面を向いた面）
   // 作業台（workspace/gojunoto.html）で整えたパーツの位置（y）と倍率。上の寸法で積んだあとに、この値で置き直す
   // 基壇は少し地面に沈めて細くし、屋根は少し厚く、いちばん上の屋根は低くしてある
   LAYOUT:{
@@ -73,7 +73,7 @@ export function createGojunoto(){
   const group=new THREE.Group();
   group.name='五重塔';
   const mat=c=>new THREE.MeshLambertMaterial({color:c});
-  const woodMat=mat(G.COLOR.wood), bodyMat=mat(G.COLOR.body);
+  const woodMat=mat(G.COLOR.wood), bodyMat=mat(G.COLOR.body), underMat=mat(G.COLOR.under);
   const lineMat=new THREE.LineBasicMaterial({color:G.COLOR.line});
 
   // パーツを置く。原点はパーツの中心の下（回転・拡大縮小の中心）。角と屋根の稜線に輪郭線（本体の子。outline=false で付けない）
@@ -96,7 +96,7 @@ export function createGojunoto(){
   const capInner=G.BODY.half[0]*0.95;
   add(roofGeo({...G.BASE_CAP,inner:capInner,thick:0.05}).top,woodMat,'基壇の屋根',G.BASE.h);   // 裏は基壇に隠れる
 
-  // 屋根 2〜5 の裏（下面）は胴と同じ色にして、1 つのメッシュにまとめる（原点 = 底面の中心。屋根と同じ位置・倍率を焼き込む）
+  // 屋根 2〜5 の裏（下面）は黒にして、1 つのメッシュにまとめる（原点 = 底面の中心。屋根と同じ位置・倍率を焼き込む）
   const unders=[];
   const roof=(opts,name,ry)=>{
     const {top,under}=roofGeo(opts);
@@ -122,7 +122,7 @@ export function createGojunoto(){
   bodies.push(box(half,under-y+0.15).translate(0,y-0.1-y0,0));
   add(mergeGeometries(bodies),bodyMat,'胴',y0);
   roof({...T,inner:0},'屋根5',roofBase);
-  add(mergeGeometries(unders),bodyMat,'屋根の裏',0,false);   // 輪郭線は屋根の上面の側で引いてある
+  add(mergeGeometries(unders),underMat,'屋根の裏',0,false);   // 輪郭線は屋根の上面の側で引いてある
 
   const LB=G.LAYOUT['基壇'], LT=G.LAYOUT['屋根5'];
   group.userData.footprint={halfW:G.BASE.half*LB.s[0],halfD:G.BASE.half*LB.s[2]};  // 当たり判定用（ローカル XZ の矩形。基壇）
