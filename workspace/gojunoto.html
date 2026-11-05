@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gojunoto</title>
+</head>
+<body>
+<style>
+#eb-wrap { width: 100%; height: max(480px, 100vh); position: relative; border-radius: var(--border-radius-lg); overflow: hidden; background: #e4e8ec; }
+#eb-label { position: absolute; top: 0; left: 0; bottom: 0; width: 132px; background: rgba(255,255,255,0.85); padding: 8px 6px 8px 8px; box-sizing: border-box; font-size: 12px; color: #444; line-height: 1.7; font-family: sans-serif; display: flex; flex-direction: column; transition: transform 0.2s; z-index: 2; }
+#eb-label.closed { transform: translateX(-100%); }
+#eb-label .hud-head { display: flex; align-items: center; gap: 4px; }
+#eb-label .hud-title { font-size: 11px; color: #999; font-weight: bold; letter-spacing: 0.05em; flex: 1; white-space: nowrap; }
+#eb-label .hud-head button { background: none; border: none; cursor: pointer; color: #888; font-size: 13px; padding: 0 2px; line-height: 1; }
+#eb-label .hud-head button.on { color: #ff7a2f; }
+#eb-label .hud-list { margin: 4px 0 0; flex: 1; overflow-y: auto; user-select: none; -webkit-user-select: none; }
+#eb-label .hud-hint { position: absolute; top: 8px; left: calc(100% + 8px); width: 260px; background: rgba(255,255,255,0.95); border-radius: 8px; padding: 8px 12px; font-size: 11px; color: #666; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+#hud-open { position: absolute; top: 8px; left: 0; background: rgba(255,255,255,0.9); border: none; border-radius: 0 8px 8px 0; padding: 8px 8px; font-size: 12px; cursor: pointer; color: #666; font-family: sans-serif; z-index: 1; }
+#eb-canvas { width: 100%; height: 100%; display: block; }
+#wf-btn { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: sans-serif; color: #444; }
+#drag-panel { position: absolute; bottom: 12px; right: 12px; background: rgba(255,255,255,0.9); border-radius: 10px; padding: 8px 12px; font-size: 12px; color: #444; font-family: sans-serif; line-height: 1.7; max-width: 300px; }
+#drag-panel .hud-title { font-size: 11px; color: #999; font-weight: bold; letter-spacing: 0.05em; }
+#drag-panel button { background: #eef1f4; border: none; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #444; margin: 4px 4px 0 0; }
+#drag-panel button.on { background: #ffe2cc; }
+#drag-panel .log-toggle { background: none; padding: 0; margin: 0; font-size: 11px; color: #999; font-weight: bold; letter-spacing: 0.05em; }
+#drag-tools { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; font-family: sans-serif; }
+#drag-tools button { background: rgba(255,255,255,0.9); border: 2px solid transparent; border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; color: #444; text-align: left; }
+#drag-tools button.on { background: #ffe2cc; border-color: #ff9a5a; }
+#drag-tools button:disabled { opacity: 0.45; cursor: default; }
+#eb-label .part.grp { font-weight: bold; }
+#drag-tools .color-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 3px 6px 3px 10px; font-size: 12px; color: #444; }
+#drag-tools .color-row input { width: 40px; height: 24px; border: none; padding: 0; background: none; cursor: pointer; }
+#drag-tools .color-row input:disabled { opacity: 0.35; cursor: default; }
+#save-status { font-size: 11px; color: #777; min-height: 15px; text-align: right; width: 0; min-width: 100%; }
+#drag-tools hr { border: none; height: 4px; margin: 0; }
+#eb-label .part { cursor: pointer; padding: 0 6px; border-radius: 4px; white-space: nowrap; }
+#eb-label .part:hover { background: #eef1f4; }
+#eb-label .part.sel { background: #ff9a5a; color: #fff; }
+#eb-label .part.mir { background: #ffe2cc; }
+#drag-list { font-family: ui-monospace, monospace; font-size: 11px; max-height: 140px; overflow-y: auto; }
+</style>
+<div id="eb-wrap">
+  <div id="eb-label">
+    <div class="hud-head">
+      <div class="hud-title">オブジェクト一覧</div>
+      <button id="hud-info" title="操作の説明">ⓘ</button>
+      <button id="hud-close" title="一覧をしまう">◀</button>
+    </div>
+    <div class="hud-list" id="hud-list"><span style="color:#ccc">（なし）</span></div>
+    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>⬇ / ⬆ で配置を JSON ファイルに書き出し・読み込み（別のブラウザへ持っていく用）<br>空いている所をドラッグで回転 / スクロールでズーム</div>
+  </div>
+  <button id="hud-open" title="一覧を出す">▶ 一覧</button>
+  <button id="wf-btn">🔲 ワイヤーフレーム ON</button>
+  <div id="drag-tools">
+    <button id="mode-move" class="on">✋ 移動 (G)</button>
+    <button id="mode-rotate">⟳ 回転 (R)</button>
+    <button id="mode-scale">⤢ 拡大縮小 (S)</button>
+    <hr>
+    <button id="drag-mirror" class="on">↔ 左右対称 ON</button>
+    <hr>
+    <button id="drag-group" title="⌘/Ctrl+G">▣ グループ化</button>
+    <button id="drag-ungroup" title="⌘/Ctrl+Shift+G">▢ グループ解除</button>
+    <hr>
+    <button id="drag-undo" title="⌘/Ctrl+Z">↩ 1つ戻す</button>
+    <button id="drag-reset">⟲ 全部戻す</button>
+    <hr>
+    <label class="color-row">🎨 色<input type="color" id="part-color" disabled></label>
+    <hr>
+    <button id="save-btn" title="⌘/Ctrl+S">💾 保存</button>
+    <button id="load-btn">📂 保存を開く</button>
+    <button id="clear-save-btn">🗑 保存を消す</button>
+    <button id="export-btn" title="配置を JSON ファイルに書き出す">⬇ JSON 書き出し</button>
+    <button id="import-btn" title="書き出した JSON ファイルを読み込む">⬆ JSON 読み込み</button>
+    <input type="file" id="import-file" accept=".json,application/json" hidden>
+    <div id="save-status"></div>
+  </div>
+  <div id="drag-panel">
+    <button class="log-toggle" id="log-toggle">▸ 動かしたパーツ（0）</button>
+    <div id="log-body" hidden>
+      <div class="hud-title">ずれ x, y, z / 回転 x°, y°, z° / 倍率 x, y, z / 色</div>
+      <div id="drag-list"><span style="color:#ccc">（なし）</span></div>
+      <button id="drag-copy">📋 コピー</button>
+    </div>
+  </div>
+  <canvas id="eb-canvas"></canvas>
+</div>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { createGojunoto } from '../landmark/gojunoto.js';
+(function() {
+
+const canvas = document.getElementById('eb-canvas');
+const wrap = document.getElementById('eb-wrap');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe4e8ec);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+
+function resize() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+const sun = new THREE.DirectionalLight(0xfff8f0, 0.6); sun.position.set(5,8,4); sun.castShadow=true; scene.add(sun);
+const fill = new THREE.DirectionalLight(0xd0e0ff, 0.4); fill.position.set(-4,2,-3); scene.add(fill);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshPhongMaterial({color:0xc8ccc8}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-5; ground.receiveShadow=true; scene.add(ground);
+
+const allMeshes=[];
+
+const GEO_NAMES={
+  IcosahedronGeometry:'二十面体', OctahedronGeometry:'八面体',
+  DodecahedronGeometry:'正十二面体', TetrahedronGeometry:'四面体',
+  TorusGeometry:'トーラス', TorusKnotGeometry:'トーラスノット',
+  ConeGeometry:'円錐', CylinderGeometry:'円柱',
+  SphereGeometry:'球', BoxGeometry:'直方体',
+  PlaneGeometry:'平面', BufferGeometry:'カスタム',
+};
+function getLabel(m){
+  if(m.name) return m.name;
+  if(!m.geometry) return m.type==='Group'?'グループ':m.type;
+  const base=GEO_NAMES[m.geometry.type]||m.geometry.type.replace('Geometry','');
+  return base+(m.userData.label?' '+m.userData.label:'');
+}
+const hudList=document.getElementById('hud-list');
+// 一覧のしまう・出す と ⓘ の説明
+const hudPanel=document.getElementById('eb-label'), hudHint=document.getElementById('hud-hint'), hudInfo=document.getElementById('hud-info');
+document.getElementById('hud-close').addEventListener('click',()=>{hudPanel.classList.add('closed');hudHint.hidden=true;hudInfo.classList.remove('on');});
+document.getElementById('hud-open').addEventListener('click',()=>hudPanel.classList.remove('closed'));
+hudInfo.addEventListener('click',()=>{hudHint.hidden=!hudHint.hidden;hudInfo.classList.toggle('on',!hudHint.hidden);});
+let _hudCount=-1;
+// 一覧：置いたオブジェクトの中のパーツとグループ（userData.isPartGroup）を入れ子で並べる。輪郭線は出さない
+const isPart=o=>(o.isMesh&&!o.userData.outline)||o.isGroup;
+// 同じ名前のパーツには #番号（置いたときの並びで決めて、グループに入れても変えない）
+function numberParts(root){
+  if(root.userData.numbered)return;
+  const leaves=[]; root.traverse(c=>{if(c.isMesh&&!c.userData.outline)leaves.push(c);});
+  leaves.forEach(c=>{
+    const same=leaves.filter(o=>o.name===c.name);
+    c.userData.no=same.length>1?same.indexOf(c)+1:0;
+  });
+  root.userData.numbered=true;
+}
+const partLabel=o=>getLabel(o)+(o.userData.no?' #'+o.userData.no:'');
+function hudRows(obj,depth){
+  return obj.children.filter(isPart).map(c=>{
+    const pad=`style="padding-left:${6+depth*10}px"`;
+    if(c.isGroup)return `<div class="part grp" data-uuid="${c.uuid}" ${pad}>▣ ${partLabel(c)}</div>`+hudRows(c,depth+1);
+    return `<div class="part" data-uuid="${c.uuid}" ${pad}>- ${partLabel(c)}</div>`;
+  }).join('');
+}
+function updateHUD(){
+  _hudCount=allMeshes.length;
+  hudList.innerHTML=allMeshes.length
+    ?allMeshes.map(m=>{
+      if(m.isGroup&&m.children.length){numberParts(m);return `· ${getLabel(m)}`+hudRows(m,0);}
+      return `<div class="part" data-uuid="${m.uuid}">· ${getLabel(m)}</div>`;
+    }).join('')
+    :'<span style="color:#ccc">（なし）</span>';
+  if(typeof markHUD==='function')markHUD();
+}
+// 行をクリックで選ぶ。Shift / ⌘ / Ctrl を押しながらで選択に足す・外す
+hudList.addEventListener('click',e=>{
+  const el=e.target.closest('.part'); if(!el)return;
+  const m=scene.getObjectByProperty('uuid',el.dataset.uuid);
+  if(!m)return;
+  if(e.shiftKey||e.metaKey||e.ctrlKey)toggleSelect(m);else selectParts([m]);
+});
+
+const posV=[],negV=[];
+for(let i=-10;i<=10;i++){const arr=i<0?negV:posV;arr.push(i,0,0);arr.push(0,i,0);arr.push(0,0,i);}
+const axPosGeo=new THREE.BufferGeometry();
+axPosGeo.setAttribute('position',new THREE.Float32BufferAttribute(posV,3));
+scene.add(new THREE.Points(axPosGeo,new THREE.PointsMaterial({color:0x000000,size:4,sizeAttenuation:false})));
+const axNegGeo=new THREE.BufferGeometry();
+axNegGeo.setAttribute('position',new THREE.Float32BufferAttribute(negV,3));
+scene.add(new THREE.Points(axNegGeo,new THREE.PointsMaterial({color:0x5070D0,size:4,sizeAttenuation:false})));
+
+let dragging=false,prevX=0,prevY=0,theta=0.5,phi=0.3,R_val=26.0;
+const tgt=new THREE.Vector3(0,6,0);   // 五重塔（高さ約 13.6m）の真ん中あたりを見る
+const updateCam=()=>{
+  camera.position.set(tgt.x+R_val*Math.sin(theta)*Math.cos(phi),tgt.y+R_val*Math.sin(phi),tgt.z+R_val*Math.cos(theta)*Math.cos(phi));
+  camera.lookAt(tgt);
+};
+updateCam();
+
+let downX=0,downY=0;
+canvas.addEventListener("mousedown",e=>{if(tc.dragging||tc.axis)return;if(partDown(e.clientX,e.clientY,e))return;dragging=true;prevX=downX=e.clientX;prevY=downY=e.clientY;});
+window.addEventListener("mouseup",e=>{if(dragging&&Math.hypot(e.clientX-downX,e.clientY-downY)<4&&e.target===canvas)selectPart(null);dragging=false;partUp();});
+window.addEventListener("mousemove",e=>{if(partMove(e.clientX,e.clientY,e))return;if(!dragging){partHover(e.clientX,e.clientY);return;}theta-=(e.clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.clientY-prevY)*0.007));prevX=e.clientX;prevY=e.clientY;updateCam();});
+canvas.addEventListener("touchstart",e=>{if(tc.dragging||tc.axis)return;if(partDown(e.touches[0].clientX,e.touches[0].clientY,{}))return;dragging=true;prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;},{passive:true});
+window.addEventListener("touchend",()=>{dragging=false;partUp();});
+window.addEventListener("touchmove",e=>{if(partMove(e.touches[0].clientX,e.touches[0].clientY,{}))return;if(!dragging)return;theta-=(e.touches[0].clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.touches[0].clientY-prevY)*0.007));prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;updateCam();},{passive:true});
+canvas.addEventListener("wheel",e=>{R_val=Math.max(6,Math.min(60,R_val+e.deltaY*0.02));updateCam();},{passive:true});
+
+let wireframe=false;
+const wfBtn=document.getElementById('wf-btn');
+function applyWireframe(obj){
+  obj.traverse(o=>{
+    if(!o.isMesh)return;
+    (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if('wireframe' in m)m.wireframe=wireframe;});
+  });
+}
+wfBtn.addEventListener('click',()=>{
+  wireframe=!wireframe;
+  allMeshes.forEach(applyWireframe);
+  wfBtn.textContent=wireframe?'🔲 ワイヤーフレーム OFF':'🔲 ワイヤーフレーム ON';
+});
+
+// 作業台にオブジェクトを置く（シーン追加 + 一覧登録 + ワイヤーフレーム状態反映）
+function addObject(obj){
+  scene.add(obj);
+  allMeshes.push(obj);
+  applyWireframe(obj);
+  return obj;
+}
+function removeObject(obj){
+  scene.remove(obj);
+  const i=allMeshes.indexOf(obj);
+  if(i>=0)allMeshes.splice(i,1);
+}
+window.workspace={scene,addObject,removeObject,allMeshes,THREE};
+
+// ===== パーツを選んで動かす・回す・拡大縮小する・グループにする =====
+// 作業台に置いたオブジェクト（root）の中のメッシュ（構成パーツ）を選んで変形する。輪郭線（userData.outline）は本体の子なので一緒に変わる
+// 選ぶ：パーツをクリックするか、オブジェクト一覧の行をクリック。Shift / ⌘ / Ctrl を押しながらで選択に足す・外す。空いている所のクリックか Esc で解除
+//   画面でクリックするとグループごと選ぶ（グループの中の 1 つだけを動かすときは一覧の行から選ぶ）
+// 1 つだけ選んでいるときは TransformControls のギズモを出す（移動 = XYZ の矢印 / 回転 = XYZ の輪 / 拡大縮小 = XYZ の箱）。つかんだ軸だけ変わる
+// パーツを直接ドラッグすると自由に変形（ドラッグを始めてから Shift で、移動は上下だけ・回転は z 軸まわり）
+//   移動：つかんだ点を通ってカメラに向いた面の上を動かす
+//   回転：横のドラッグ = y 軸まわり / 縦 = x 軸まわり。パーツの中心が軸
+//   拡大縮小：上へドラッグで大きく、下で小さく（3 方向そろえて）
+// グループ：2 つ以上選んで「グループ化」（⌘/Ctrl+G）。中心に THREE.Group を置いて中へ移す（見た目は変えない）。「グループ解除」（⌘/Ctrl+Shift+G）で元の親へ戻す
+// 左右対称：x=0 の面で鏡に写した位置にある相手（右手⇔左手など）も鏡写しに変える
+//   グループにするときも、選んだパーツの相手どうしで鏡写しのグループを一緒に作る（左右両方を選んでいれば真ん中のグループ 1 つ）
+//   真ん中のもの（頭・左右両方を入れたグループなど）は左右にずれないよう x の移動と y・z 軸の回転を止める
+// ずれは root の座標（モデル単位）で、パーツごとに元の位置・向き・倍率からの差を右下に出す（グループで動かした分も含む）。コピーで JSON にして BLUEDOG の数値へ写す用
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+const dragPlane=new THREE.Plane(), hitP=new THREE.Vector3();
+let grab=null;                 // 直接ドラッグ中 {obj, mode, offset, x0, y0}
+let sels=[];                   // 選んでいるもの（パーツかグループ）
+let sel=null;                  // 1 つだけ選んでいるときのそれ（ギズモを付ける）
+const orig=new Map();          // パーツ -> {pos, quat, scale, center} root の座標での元の位置・向き・倍率と形の中心
+const origLocal=new Map();     // root の中のもの（グループを含む） -> {pos, quat, scale} 親の中での元の値（全部戻す用）
+const history=[];              // {list:[[obj, position, quaternion, scale], ...]} か {undo()}
+let mirrorOn=true, mode='translate', groupNo=0;
+const dragList=document.getElementById('drag-list');
+const mirBtn=document.getElementById('drag-mirror');
+const groupBtn=document.getElementById('drag-group'), ungroupBtn=document.getElementById('drag-ungroup');
+const modeBtns={translate:document.getElementById('mode-move'),rotate:document.getElementById('mode-rotate'),scale:document.getElementById('mode-scale')};
+const logToggle=document.getElementById('log-toggle'), logBody=document.getElementById('log-body');
+
+// 選んだものを囲む枠（選んだもの = 濃いオレンジ / 左右対称の相手 = 薄いオレンジ）
+const boxes=[];
+function boxAt(i,color){
+  if(!boxes[i]){boxes[i]=new THREE.BoxHelper(undefined,color);scene.add(boxes[i]);}
+  boxes[i].material.color.set(color);
+  return boxes[i];
+}
+
+// ギズモ（移動の矢印・回転の輪・拡大縮小の箱）
+const tc=new TransformControls(camera,canvas);
+tc.setSize(0.8);
+scene.add(tc);
+tc.addEventListener('mouseDown',()=>{if(sel)beginStep(sel);});
+tc.addEventListener('objectChange',()=>{afterChange(sel);});
+tc.addEventListener('mouseUp',()=>{endStep();});
+
+function castAt(x,y){
+  const r=canvas.getBoundingClientRect();
+  ndc.set((x-r.left)/r.width*2-1,-(y-r.top)/r.height*2+1);
+  ray.setFromCamera(ndc,camera);
+}
+const rootOf=o=>{while(o&&!allMeshes.includes(o))o=o.parent;return o;};
+// 画面でつかんだメッシュ → root のすぐ下のもの（グループに入っていればいちばん外のグループ）
+const unitOf=o=>{const r=rootOf(o);if(o===r)return o;while(o.parent&&o.parent!==r)o=o.parent;return o;};
+const leavesOf=o=>{const a=[];o.traverse(c=>{if(c.isMesh&&!c.userData.outline)a.push(c);});return a;};
+function pickPart(x,y){
+  castAt(x,y);
+  const hits=ray.intersectObjects(allMeshes,true).filter(h=>h.object.isMesh&&h.object.visible);
+  if(!hits.length)return null;
+  let o=hits[0].object;
+  if(o.userData.outline)o=o.parent;
+  return {mesh:o,point:hits[0].point};
+}
+
+// root の座標での変形（グループに入っていても、グループの変形を含めて）
+const _m=new THREE.Matrix4();
+function rootTf(o){
+  const r=rootOf(o);
+  r.updateMatrixWorld(true);
+  _m.copy(r.matrixWorld).invert().multiply(o.matrixWorld);
+  const t={pos:new THREE.Vector3(),quat:new THREE.Quaternion(),scale:new THREE.Vector3()};
+  _m.decompose(t.pos,t.quat,t.scale);
+  return t;
+}
+// 元の変形は、はじめて触る前に root の中のパーツをまとめて覚える（置いたときは root の直下なので、そのままの値）
+function ensureOrig(o){
+  const r=rootOf(o);
+  if(!r||r.userData.origDone)return;
+  r.traverse(c=>{if(c!==r&&!c.userData.outline&&!c.isTransformControls)origLocal.set(c,{pos:c.position.clone(),quat:c.quaternion.clone(),scale:c.scale.clone()});});
+  leavesOf(r).forEach(c=>{
+    const t=rootTf(c);
+    c.geometry.computeBoundingBox();
+    const m=new THREE.Matrix4().compose(t.pos,t.quat,t.scale);
+    t.center=c.geometry.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(m);
+    orig.set(c,t);
+  });
+  r.userData.origDone=true;
+}
+
+// 鏡写しの相手。真ん中のものは 'self'、相手がいなければ null
+//   パーツ：元の位置の x を反転した所にあるパーツ（分割数が奇数だと形の中心が左右で少しずれるので広めに探し、いちばん近いものを選ぶ）
+//           親どうしも鏡写し（同じ親か、親が鏡写しのグループどうし）のときだけ
+//   グループ：作ったときに決めた相手（userData.mirror）
+const MIRROR_TOL=0.12;
+function leafMirror(m){
+  if(m.userData.mirrorLeaf!==undefined)return m.userData.mirrorLeaf;
+  ensureOrig(m);
+  const p=orig.get(m).center;
+  let res=null;
+  if(Math.abs(p.x)<0.05)res='self';
+  else{
+    const t=new THREE.Vector3(-p.x,p.y,p.z);
+    let best=MIRROR_TOL;
+    leavesOf(rootOf(m)).forEach(c=>{
+      if(c===m||c.geometry.type!==m.geometry.type)return;
+      const d=orig.get(c).center.distanceTo(t);
+      if(d<best){best=d;res=c;}
+    });
+  }
+  m.userData.mirrorLeaf=res;
+  return res;
+}
+function mirrorOf(o){
+  if(o.userData.isPartGroup)return o.userData.mirror||null;
+  const r=leafMirror(o);
+  const par=o.parent, root=rootOf(o);
+  const parSelf=par===root||par.userData.mirror==='self';
+  if(r==='self')return parSelf?'self':null;
+  if(!r)return null;
+  if(r.parent===par&&parSelf)return r;
+  if(par.userData.mirror===r.parent)return r;
+  return null;
+}
+const mirrorNow=o=>(o&&mirrorOn)?mirrorOf(o):null;
+
+// ひとつの操作の始まりと終わり（変わる前を覚えておき、鏡写しの差分と 1つ戻す に使う）
+let step=null;                 // Map obj -> {p, q, s}
+function beginStep(o){
+  ensureOrig(o);
+  const mir=mirrorNow(o);
+  step=new Map();
+  [o].concat(mir&&mir!=='self'?[mir]:[]).forEach(x=>step.set(x,{p:x.position.clone(),q:x.quaternion.clone(),s:x.scale.clone()}));
+}
+function endStep(){
+  if(!step)return;
+  const list=[...step].map(([o,v])=>[o,v.p,v.q,v.s]);
+  if(list.some(([o,p,q,s])=>!o.position.equals(p)||!o.quaternion.equals(q)||!o.scale.equals(s)))history.push({list});
+  step=null;
+}
+// 鏡写し（操作を始めたときからの差分を写す）：位置は x を反転、向きは (x,y,z,w) → (x,-y,-z,w)、倍率はそのまま
+function applyMirror(o,mir){
+  const st=step&&step.get(o); if(!st)return;
+  const dq=o.quaternion.clone().multiply(st.q.clone().invert());
+  if(mir==='self'){
+    o.position.x=st.p.x;
+    dq.y=0; dq.z=0; dq.normalize();
+    o.quaternion.copy(dq.multiply(st.q));
+    return;
+  }
+  const sm=step.get(mir); if(!sm)return;
+  const d=o.position.clone().sub(st.p);
+  mir.position.set(sm.p.x-d.x,sm.p.y+d.y,sm.p.z+d.z);
+  dq.y=-dq.y; dq.z=-dq.z;
+  mir.quaternion.copy(dq.multiply(sm.q));
+  mir.scale.copy(sm.s).multiply(o.scale.clone().divide(st.s));
+}
+function afterChange(o){
+  if(!o)return;
+  const mir=mirrorNow(o);
+  if(mir)applyMirror(o,mir);
+  showBoxes(); updateDragList();
+}
+
+// 選ぶ
+function selectParts(list){
+  sels=list.filter(Boolean);
+  sel=sels.length===1?sels[0]:null;
+  if(sel){ensureOrig(sel);tc.attach(sel);tc.setMode(mode);tc.setSpace(mode==='scale'?'local':'world');}
+  else tc.detach();
+  showBoxes(); markHUD(); updateGroupBtns(); updateColorInput();
+}
+const selectPart=m=>selectParts(m?[m]:[]);
+function toggleSelect(o){
+  // グループの中のものと、そのグループは一緒に選ばない
+  const rest=sels.filter(s=>s!==o&&!isInside(s,o)&&!isInside(o,s));
+  selectParts(sels.includes(o)?rest:rest.concat([o]));
+}
+const isInside=(a,b)=>{for(let p=a.parent;p;p=p.parent)if(p===b)return true;return false;};
+function mirrorsOfSel(){
+  const out=[];
+  sels.forEach(s=>{const m=mirrorNow(s);if(m&&m!=='self'&&!sels.includes(m))out.push(m);});
+  return out;
+}
+function showBoxes(){
+  const mirs=mirrorsOfSel();
+  let i=0;
+  sels.forEach(s=>{const b=boxAt(i++,0xff7a2f);b.setFromObject(s);b.visible=true;});
+  mirs.forEach(s=>{const b=boxAt(i++,0xffc08a);b.setFromObject(s);b.visible=true;});
+  for(;i<boxes.length;i++)boxes[i].visible=false;
+}
+function markHUD(){
+  const ids=new Set(sels.map(s=>s.uuid)), mids=new Set(mirrorsOfSel().map(s=>s.uuid));
+  hudList.querySelectorAll('.part').forEach(el=>{
+    el.classList.toggle('sel',ids.has(el.dataset.uuid));
+    el.classList.toggle('mir',mids.has(el.dataset.uuid));
+  });
+  const el=hudList.querySelector('.part.sel');
+  if(el)el.scrollIntoView({block:'nearest'});
+}
+function updateGroupBtns(){
+  groupBtn.disabled=!(sels.length>=2&&sels.every(s=>s.parent===sels[0].parent));
+  ungroupBtn.disabled=!sels.some(s=>s.userData.isPartGroup);
+}
+
+// ===== グループ =====
+// units を中心に置いた THREE.Group へ移す（attach なので見た目は変わらない）。center を渡すとその位置に置く
+function makeGroup(units,name,center){
+  const parent=units[0].parent;
+  if(!center){
+    const box=new THREE.Box3();
+    units.forEach(u=>box.expandByObject(u));
+    center=parent.worldToLocal(box.getCenter(new THREE.Vector3()));
+  }
+  const g=new THREE.Group();
+  g.name=name; g.userData.isPartGroup=true;
+  g.position.copy(center);
+  parent.add(g); g.updateMatrixWorld(true);
+  units.forEach(u=>g.attach(u));
+  return g;
+}
+function ungroupRaw(g){
+  const parent=g.parent, children=g.children.slice();
+  if(tc.object===g)tc.detach();
+  children.forEach(c=>parent.attach(c));
+  parent.remove(g);
+  return {g,parent,children};
+}
+function regroupRaw(info){
+  info.parent.add(info.g); info.g.updateMatrixWorld(true);
+  info.children.forEach(c=>info.g.attach(c));
+}
+function groupSelected(){
+  if(groupBtn.disabled)return;
+  const units=sels.slice();
+  units.forEach(ensureOrig);
+  const no=++groupNo;
+  const made=[];
+  const partners=mirrorOn?units.map(mirrorOf):[];
+  const selfSym=mirrorOn&&partners.every(p=>p==='self'||units.includes(p));
+  const pairOk=mirrorOn&&!selfSym&&partners.every(p=>p&&p!=='self'&&!units.includes(p))
+    &&partners.every(p=>p.parent===partners[0].parent)&&new Set(partners).size===partners.length;
+  // 中心（左右対称なら x=0 に、鏡写しの組なら相手は x を反転した所に置き、ふたつの座標が鏡写しになるようにする）
+  const box=new THREE.Box3(); units.forEach(u=>box.expandByObject(u));
+  const c=units[0].parent.worldToLocal(box.getCenter(new THREE.Vector3()));
+  if(selfSym)c.x=0;
+  const g=makeGroup(units,`グループ${no}`,c);
+  made.push(g);
+  if(selfSym)g.userData.mirror='self';
+  if(pairOk){
+    const g2=makeGroup(partners,`グループ${no}'`,new THREE.Vector3(-c.x,c.y,c.z));
+    g.userData.mirror=g2; g2.userData.mirror=g;
+    made.push(g2);
+  }
+  history.push({undo:()=>{made.slice().reverse().forEach(ungroupRaw);selectParts(units);}});
+  updateHUD(); selectParts([g]);
+}
+function ungroupSelected(){
+  const gs=new Set();
+  sels.forEach(s=>{
+    if(!s.userData.isPartGroup)return;
+    gs.add(s);
+    const m=mirrorNow(s); if(m&&m!=='self')gs.add(m);
+  });
+  if(!gs.size)return;
+  const selG=sels.filter(s=>s.userData.isPartGroup);
+  const infos=[...gs].map(ungroupRaw);
+  const children=infos.filter(i=>selG.includes(i.g)).flatMap(i=>i.children);
+  history.push({undo:()=>{infos.slice().reverse().forEach(regroupRaw);updateHUD();selectParts(selG);}});
+  updateHUD(); selectParts(children);
+}
+groupBtn.addEventListener('click',groupSelected);
+ungroupBtn.addEventListener('click',ungroupSelected);
+
+// パーツを直接ドラッグ
+function partDown(x,y,e){
+  const h=pickPart(x,y);
+  if(!h)return false;
+  const u=unitOf(h.mesh);
+  if(e.shiftKey||e.metaKey||e.ctrlKey){toggleSelect(u);return true;}
+  if(!(sels.length===1&&(sels[0]===u||isInside(sels[0],u))))selectParts([u]);
+  const o=sel;
+  beginStep(o);
+  const n=new THREE.Vector3(); camera.getWorldDirection(n);
+  dragPlane.setFromNormalAndCoplanarPoint(n,h.point);
+  grab={obj:o,mode,offset:o.position.clone().sub(o.parent.worldToLocal(h.point.clone())),x0:x,y0:y};
+  canvas.style.cursor='grabbing';
+  return true;
+}
+const AX={x:new THREE.Vector3(1,0,0),y:new THREE.Vector3(0,1,0),z:new THREE.Vector3(0,0,1)};
+function partMove(x,y,e){
+  if(!grab)return false;
+  const o=grab.obj, st=step.get(o);
+  if(grab.mode==='translate'){
+    castAt(x,y);
+    if(!ray.ray.intersectPlane(dragPlane,hitP))return true;
+    const p=o.parent.worldToLocal(hitP.clone()).add(grab.offset);
+    if(e.shiftKey)o.position.set(st.p.x,p.y,st.p.z);else o.position.copy(p);
+  }else if(grab.mode==='rotate'){
+    const dx=(x-grab.x0)*0.01, dy=(y-grab.y0)*0.01;
+    const q=e.shiftKey
+      ?new THREE.Quaternion().setFromAxisAngle(AX.z,-dx)
+      :new THREE.Quaternion().setFromAxisAngle(AX.y,dx).multiply(new THREE.Quaternion().setFromAxisAngle(AX.x,dy));
+    o.quaternion.copy(q.multiply(st.q));
+  }else{
+    const k=Math.max(0.05,Math.exp(-(y-grab.y0)*0.006));
+    o.scale.copy(st.s).multiplyScalar(k);
+  }
+  afterChange(o);
+  return true;
+}
+function partUp(){
+  if(!grab)return;
+  endStep();
+  grab=null; canvas.style.cursor='';
+}
+function partHover(x,y){
+  if(tc.axis){canvas.style.cursor='';return;}
+  canvas.style.cursor=pickPart(x,y)?'grab':'';
+}
+
+// ===== 動かしたパーツの一覧 =====
+const r2=v=>Math.round(v*100)/100;
+const euler=new THREE.Euler();
+function offsets(){
+  const out=[];
+  orig.forEach((o,m)=>{
+    const t=rootTf(m);
+    const d=t.pos.sub(o.pos);
+    const dq=t.quat.multiply(o.quat.clone().invert());
+    euler.setFromQuaternion(dq);
+    const rot=[euler.x,euler.y,euler.z].map(v=>r2(THREE.MathUtils.radToDeg(v)));
+    const sc=t.scale.divide(o.scale).toArray().map(r2);
+    const col=colorOf(m);
+    const color=col&&col!==hex(m.userData.origMat.color)?col:null;
+    if(d.lengthSq()<1e-6&&rot.every(v=>v===0)&&sc.every(v=>v===1)&&!color)return;
+    out.push({name:m.name,no:m.userData.no||0,dx:r2(d.x),dy:r2(d.y),dz:r2(d.z),rx:rot[0],ry:rot[1],rz:rot[2],sx:sc[0],sy:sc[1],sz:sc[2],...(color?{color}:{})});
+  });
+  return out;
+}
+function updateDragList(){
+  const o=offsets();
+  dragList.innerHTML=o.length
+    ?o.map(e=>`${e.name}${e.no?' #'+e.no:''}: ${e.dx}, ${e.dy}, ${e.dz}`
+      +((e.rx||e.ry||e.rz)?` / ${e.rx}°, ${e.ry}°, ${e.rz}°`:'')
+      +((e.sx!==1||e.sy!==1||e.sz!==1)?` / ×${e.sx}, ${e.sy}, ${e.sz}`:'')
+      +(e.color?` / <span style="color:${e.color}">■</span>${e.color}`:'')).join('<br>')
+    :'<span style="color:#ccc">（なし）</span>';
+  logToggle.textContent=`${logBody.hidden?'▸':'▾'} 動かしたパーツ（${o.length}）`;
+}
+logToggle.addEventListener('click',()=>{logBody.hidden=!logBody.hidden;updateDragList();});
+document.getElementById('drag-copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(JSON.stringify(offsets(),null,1));
+});
+function undo(){
+  const h=history.pop(); if(!h)return;
+  if(h.undo)h.undo();
+  else h.list.forEach(([o,p,q,s])=>{o.position.copy(p);o.quaternion.copy(q);o.scale.copy(s);});
+  showBoxes(); updateDragList(); updateHUD();
+}
+document.getElementById('drag-undo').addEventListener('click',undo);
+// 全部戻す：グループをすべて解除してから、パーツを元の変形に戻す
+document.getElementById('drag-reset').addEventListener('click',()=>{
+  selectParts([]);
+  allMeshes.forEach(r=>{
+    const gs=[]; r.traverse(c=>{if(c.userData.isPartGroup)gs.push(c);});
+    gs.reverse().forEach(ungroupRaw);
+  });
+  origLocal.forEach((o,m)=>{m.position.copy(o.pos);m.quaternion.copy(o.quat);m.scale.copy(o.scale);});
+  orig.forEach((o,m)=>resetPartColor(m));
+  history.length=0; updateHUD(); showBoxes(); updateDragList();
+});
+mirBtn.addEventListener('click',()=>{
+  mirrorOn=!mirrorOn;
+  mirBtn.textContent=mirrorOn?'↔ 左右対称 ON':'↔ 左右対称 OFF';
+  mirBtn.classList.toggle('on',mirrorOn);
+  showBoxes(); markHUD();
+});
+function setMode(m){
+  mode=m;
+  Object.entries(modeBtns).forEach(([k,b])=>b.classList.toggle('on',k===m));
+  tc.setMode(m); tc.setSpace(m==='scale'?'local':'world');
+}
+Object.entries(modeBtns).forEach(([k,b])=>b.addEventListener('click',()=>setMode(k)));
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  const k=e.key.toLowerCase();
+  if((e.metaKey||e.ctrlKey)&&k==='g'){e.preventDefault();if(e.shiftKey)ungroupSelected();else groupSelected();return;}
+  if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();undo();return;}
+  if((e.metaKey||e.ctrlKey)&&k==='s'){e.preventDefault();saveLayout();return;}
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(k==='g')setMode('translate');
+  if(k==='r')setMode('rotate');
+  if(k==='s')setMode('scale');
+  if(e.key==='Escape')selectParts([]);
+});
+// ===== 色 =====
+// 選んだパーツ（グループなら中のパーツ全部）の色を変える。左右対称 ON なら鏡写しの相手も同じ色に
+// マテリアルは共有なので、はじめて色を変えるときにそのパーツ用に複製する（userData.origMat に元のマテリアル）
+// 自発光は material.userData.emissiveK（色に対する割合）があれば色に合わせて変える
+const colorInput=document.getElementById('part-color');
+const hex=c=>'#'+c.getHexString();
+function colorTargets(){
+  const set=new Set();
+  sels.forEach(s=>leavesOf(s).forEach(l=>{
+    set.add(l);
+    if(mirrorOn){const m=leafMirror(l);if(m&&m!=='self')set.add(m);}
+  }));
+  return [...set].filter(l=>l.material&&l.material.color);
+}
+function setPartColor(m,c){
+  if(!m.userData.origMat){m.userData.origMat=m.material;m.material=m.material.clone();}
+  m.material.color.set(c);
+  const k=m.material.userData.emissiveK;
+  if(k!==undefined&&m.material.emissive)m.material.emissive.copy(m.material.color).multiplyScalar(k);
+}
+function resetPartColor(m){
+  if(!m.userData.origMat)return;
+  m.material.dispose();
+  m.material=m.userData.origMat; delete m.userData.origMat;
+}
+const colorOf=m=>m.userData.origMat?hex(m.material.color):null;   // 変えた色（変えていなければ null）
+function updateColorInput(){
+  const t=colorTargets();
+  colorInput.disabled=!t.length;
+  if(t.length)colorInput.value=hex(t[0].material.color);
+}
+let colorStep=null;   // 色を変える前の状態 [[mesh, 元の色 or null], ...]
+colorInput.addEventListener('input',()=>{
+  const t=colorTargets();
+  if(!colorStep)colorStep=t.map(m=>[m,colorOf(m)]);
+  t.forEach(m=>setPartColor(m,colorInput.value));
+  updateDragList();
+});
+colorInput.addEventListener('change',()=>{
+  if(!colorStep)return;
+  const prev=colorStep; colorStep=null;
+  history.push({undo:()=>{prev.forEach(([m,c])=>c?setPartColor(m,c):resetPartColor(m));updateColorInput();}});
+});
+
+// ===== 配置の保存（ブラウザの localStorage） =====
+// 保存するもの：作ったグループ（親・位置・向き・倍率・鏡写しの相手）と、パーツの親・位置・向き・倍率・変えた色
+// もともとあるグループ（自分で作ったのではないもの）は位置・向き・倍率だけ保存する
+// 置いたオブジェクトは名前（なければ置いた順）、パーツは「名前 #番号」で見分ける。開いたときに保存があれば自動でその配置にする
+const SAVE_KEY='workspace-layout:'+location.pathname;
+const saveStatus=document.getElementById('save-status');
+const tfOut=o=>({p:o.position.toArray(),q:o.quaternion.toArray(),s:o.scale.toArray()});
+const tfIn=(o,t)=>{o.position.fromArray(t.p);o.quaternion.fromArray(t.q);o.scale.fromArray(t.s);};
+const partKey=m=>m.name+(m.userData.no?'#'+m.userData.no:'');
+const rootKey=(r,i)=>r.name||('#'+i);
+function layoutData(){
+  const data={v:1,groupNo,roots:{}};
+  allMeshes.forEach((r,ri)=>{
+    if(!r.isGroup)return;
+    numberParts(r);
+    const groups=[],parts=[],nodes=[];
+    r.traverse(c=>{
+      if(c===r||c.userData.outline)return;
+      const parent=c.parent===r?null:c.parent.name;
+      if(c.userData.isPartGroup){
+        const mir=c.userData.mirror;
+        groups.push({name:c.name,parent,mirror:mir==='self'?'self':mir?mir.name:null,...tfOut(c)});
+      }else if(c.isMesh){
+        parts.push({key:partKey(c),parent,color:colorOf(c),...tfOut(c)});
+      }else if(c.isGroup){
+        nodes.push({name:c.name,...tfOut(c)});
+      }
+    });
+    data.roots[rootKey(r,ri)]={groups,parts,nodes};
+  });
+  return data;
+}
+function saveLayout(){
+  localStorage.setItem(SAVE_KEY,JSON.stringify(layoutData()));
+  showSaveStatus('保存しました');
+}
+// ===== JSON の書き出し・読み込み（ブラウザをまたいで配置を受け渡す。中身は保存と同じ形） =====
+const pageName=location.pathname.split('/').pop().replace(/\.html$/,'')||'workspace';
+function exportLayout(){
+  const d=new Date(), z=n=>String(n).padStart(2,'0');
+  const name=`${pageName}-layout-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`;
+  const url=URL.createObjectURL(new Blob([JSON.stringify(layoutData(),null,1)],{type:'application/json'}));
+  const a=document.createElement('a'); a.href=url; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showSaveStatus('書き出しました');
+}
+const importInput=document.getElementById('import-file');
+importInput.addEventListener('change',async()=>{
+  const file=importInput.files[0]; importInput.value='';
+  if(!file)return;
+  try{
+    const data=JSON.parse(await file.text());
+    if(!data||!data.roots)throw new Error('配置の JSON ではありません');
+    applyLayout(data);
+    showSaveStatus('読み込みました。残すなら 💾 保存');
+  }catch(err){console.error(err);showSaveStatus('読み込めませんでした');}
+});
+document.getElementById('export-btn').addEventListener('click',exportLayout);
+document.getElementById('import-btn').addEventListener('click',()=>importInput.click());
+function applyLayout(data){
+  allMeshes.forEach((r,ri)=>{
+    const d=data.roots[rootKey(r,ri)]; if(!d||!r.isGroup||!leavesOf(r).length)return;
+    numberParts(r); ensureOrig(leavesOf(r)[0]);
+    // いまのグループを解除して、パーツを元に戻してから組み立て直す
+    const gs=[]; r.traverse(c=>{if(c.userData.isPartGroup)gs.push(c);});
+    gs.reverse().forEach(ungroupRaw);
+    const byName={};
+    d.groups.forEach(gd=>{
+      const g=new THREE.Group(); g.name=gd.name; g.userData.isPartGroup=true;
+      tfIn(g,gd); (gd.parent?byName[gd.parent]:r).add(g); byName[gd.name]=g;
+    });
+    d.groups.forEach(gd=>{byName[gd.name].userData.mirror=gd.mirror==='self'?'self':(gd.mirror&&byName[gd.mirror])||undefined;});
+    // もともとあるグループ
+    const nodes={}; r.traverse(c=>{if(c!==r&&c.isGroup&&!c.userData.isPartGroup&&c.name)nodes[c.name]=c;});
+    (d.nodes||[]).forEach(nd=>{if(nodes[nd.name])tfIn(nodes[nd.name],nd);});
+    const leaves={}; leavesOf(r).forEach(l=>leaves[partKey(l)]=l);
+    d.parts.forEach(pd=>{
+      const m=leaves[pd.key]; if(!m)return;
+      const parent=pd.parent?(byName[pd.parent]||nodes[pd.parent]):r;
+      if(!parent)return;
+      if(m.parent!==parent)parent.add(m);
+      tfIn(m,pd);
+      if(pd.color)setPartColor(m,pd.color);else resetPartColor(m);
+    });
+  });
+  groupNo=Math.max(groupNo,data.groupNo||0);
+  history.length=0;
+  updateHUD(); selectParts([]); updateDragList();
+}
+function loadLayout(){
+  const raw=localStorage.getItem(SAVE_KEY);
+  if(!raw){showSaveStatus('保存はありません');return false;}
+  try{applyLayout(JSON.parse(raw));showSaveStatus('保存した配置を開きました');return true;}
+  catch(err){console.error(err);showSaveStatus('保存を読めませんでした');return false;}
+}
+let saveTimer=0;
+function showSaveStatus(t){
+  saveStatus.textContent=t+'（'+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})+'）';
+  clearTimeout(saveTimer); saveTimer=setTimeout(()=>saveStatus.textContent=hasSave()?'保存あり':'',4000);
+}
+const hasSave=()=>!!localStorage.getItem(SAVE_KEY);
+document.getElementById('save-btn').addEventListener('click',saveLayout);
+document.getElementById('load-btn').addEventListener('click',loadLayout);
+document.getElementById('clear-save-btn').addEventListener('click',()=>{
+  if(!hasSave())return;
+  if(!confirm('保存した配置を消しますか？（いま画面にある配置はそのまま）'))return;
+  localStorage.removeItem(SAVE_KEY); showSaveStatus('保存を消しました');
+});
+
+updateGroupBtns();
+
+// ===== ここにパーツを置く =====
+// 例：const obj=createXXX(); addObject(obj);
+//   置いたオブジェクトの中のメッシュが構成パーツになる（一覧に並び、選んで動かせる）
+//   輪郭線などの補助のメッシュは userData.outline=true にして本体の子にしておくと、一覧に出ず本体と一緒に動く
+//   パーツの原点が回転・拡大縮小の中心になる。形の中心で回したいときはジオメトリを中心へ寄せて position で置く
+//   左右対称は置いたオブジェクトの座標の x=0 が鏡の面
+//   色を変えると自発光は変えない。material.userData.emissiveK（色に対する割合）を入れておくと色に合わせて変える
+
+// 五重塔（landmark/gojunoto.js。実寸）
+addObject(createGojunoto());
+
+
+
+// 置き終わったら：保存があればその配置にする
+updateHUD();
+if(hasSave())loadLayout();
+
+resize();
+window.addEventListener("resize",resize);
+(function animate(){requestAnimationFrame(animate);renderer.render(scene,camera);if(allMeshes.length!==_hudCount)updateHUD();})();
+
+})();
+</script>
+</body>
+</html>
