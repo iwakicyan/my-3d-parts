@@ -9,6 +9,7 @@ Three.js 3Dパーツライブラリ
 - `kummo.jsx` — 雲生き物 kummo・`createKummo()`
 - `gummo.jsx` — 雲生き物 gummo・`createGummo()`
 - `gondola.js` — 頭に木の芽の生えた雲生き物 gondola・`createGondola()`・kummo（kummo.jsx）と芽（茎1本・葉2枚）を作業台 workspace/gondola.html で整えた配置（`GONDOLA_LAYOUT`。パーツごとの 4x4 行列と色）をジオメトリに焼き込む・原点=形の中心・+z が正面（顔）・大きさはモデル単位で幅3×長さ4×高さ1.6（`GONDOLA_BOUNDS`）・`userData.walkable` に上を歩けるメッシュ（体と十二面体）
+- `gondeer.js` — 頭の左右に半円のティアラ（帯＋先を面取りしたとげ5本。角のように立てたもの）を載せた雲生き物 gondeer・`createGondeer()`・gondola から木の芽を外し、作業台 workspace/gondeer.html で整えた配置（`GONDEER_LAYOUT`。パーツごとの 4x4 行列と色）を、kummo の 5 メッシュは `GONDOLA_LAYOUT` に重ねてジオメトリに焼き込む・ティアラ2つは1色なので1メッシュにまとめる・原点=形の中心・+z が正面（顔）・大きさはモデル単位（gondola と同じ）・`userData.walkable` に上を歩けるメッシュ（体と十二面体）・`userData.bodyBox` に体と十二面体を囲む箱
 - `forest1.jsx` — ローポリ球群の森・`createForest1()`・シード固定乱数
 - `lowpoly_rock01.js` — 岩・ローポリ・`createRock01Group(seed)`
 - `lowpoly-grass1.jsx` — 草・ローポリ・`createLowpolyGrass1()`
@@ -72,3 +73,4 @@ Three.js 3Dパーツライブラリ
 - `gojunoto.html` — 五重塔の作業台・editor.html に `createGojunoto()` を実寸で置いたもの（パーツを選んで動かす・色・保存がそのまま使える）
 - `cakestand.html` — ケーキスタンドの作業台・editor.html に `createCakestand()` を実寸で置いたもの
 - `gondola.html` — gondola の作業台・editor.html に顔のある雲生き物 `createKummo()` を1体、真ん中に置き、頭のてっぺんに木の芽（sprout：緑の6角柱の茎1本と、つぶした20面体の葉2枚をV字に開いたもの。各パーツの原点は根元）を生やしたもの（新しいオブジェのたたき台）・芽は保存した配置を読み込んだあとの kummo の高さに合わせて載せ直す・.jsx は http.server が JavaScript として返さないので fetch して blob の URL から import する
+- `gondeer.html` — gondeer の作業台・editor.html に `createGondola()` を真ん中に置き、木の芽を外して、頭の x のプラス側とマイナス側に半円のティアラ（帯1つ＋とげ5本を1グループ。左右のグループは鏡写しの相手どうし）を正面どうし向かい合わせに載せたもの・頭のてっぺんを見るカメラで 0.8 まで寄れる・gondola.js が import する kummo.jsx は blob の URL に差し替えて読み込む
