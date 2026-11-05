@@ -110,7 +110,7 @@ export function createCakestand(){
     add(mergeGeometries(geos),standMat,'飾り',rodTop-0.05,false);
   }
 
-  group.userData.footprint={halfW:C.FOOT.r,halfD:C.FOOT.r};  // 当たり判定用（ローカル XZ の矩形。台座だけ。皿は頭上なので下をくぐれる）
+  group.userData.footprint={halfW:C.FOOT.r,halfD:C.FOOT.r,radius:C.FOOT.r};  // 当たり判定用（台座だけの円。radius を見ない使い方では外接する矩形。皿は頭上なので下をくぐれる）
   group.userData.height=rodTop-0.05+C.TOP.loop.r*2.3;
   return group;
 }
