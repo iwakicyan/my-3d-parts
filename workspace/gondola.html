@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kummo & Gummo</title>
+<title>Gondola</title>
 </head>
 <body>
 <style>
@@ -97,7 +97,6 @@ async function importJsx(path){
   return import(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
 }
 const { createKummo } = await importJsx('../parts/kummo.jsx');
-const { createGummo } = await importJsx('../parts/gummo.jsx');
 (function() {
 
 const canvas = document.getElementById('eb-canvas');
@@ -796,9 +795,8 @@ updateGroupBtns();
 //   左右対称は置いたオブジェクトの座標の x=0 が鏡の面
 //   色を変えると自発光は変えない。material.userData.emissiveK（色に対する割合）を入れておくと色に合わせて変える
 
-// 顔のある雲生き物（parts/kummo.jsx・parts/gummo.jsx。coccolith の空を回遊しているもの）
-const kummo=createKummo(); kummo.name='kummo'; kummo.position.x=-2.5; addObject(kummo);
-const gummo=createGummo(); gummo.name='gummo'; gummo.position.x=2.5; addObject(gummo);
+// gondola のたたき台：顔のある雲生き物 kummo（parts/kummo.jsx。coccolith の空を回遊しているもの）を真ん中に置く
+const kummo=createKummo(); kummo.name='kummo'; addObject(kummo);
 
 
 
