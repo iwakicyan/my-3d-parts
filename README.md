@@ -8,6 +8,7 @@ Three.js 3Dパーツライブラリ
 - `sabchan.jsx` — サブちゃん・プレイヤーアバター・`createSabchan(scene)` / `animateSabchan(parts, t)`
 - `kummo.jsx` — 雲生き物 kummo・`createKummo()`
 - `gummo.jsx` — 雲生き物 gummo・`createGummo()`
+- `gondola.js` — 頭に木の芽の生えた雲生き物 gondola・`createGondola()`・kummo（kummo.jsx）と芽（茎1本・葉2枚）を作業台 workspace/gondola.html で整えた配置（`GONDOLA_LAYOUT`。パーツごとの 4x4 行列と色）をジオメトリに焼き込む・原点=形の中心・+z が正面（顔）・大きさはモデル単位で幅3×長さ4×高さ1.6（`GONDOLA_BOUNDS`）・`userData.walkable` に上を歩けるメッシュ（体と十二面体）
 - `forest1.jsx` — ローポリ球群の森・`createForest1()`・シード固定乱数
 - `lowpoly_rock01.js` — 岩・ローポリ・`createRock01Group(seed)`
 - `lowpoly-grass1.jsx` — 草・ローポリ・`createLowpolyGrass1()`
