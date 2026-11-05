@@ -57,15 +57,9 @@ export function createForest1({ trunkExtend = 0 } = {}) {
     }
   });
 
-  // 半透明球（固定位置）
-  const transmat = new THREE.MeshPhongMaterial({ color: 0x4A967F, flatShading: true, shininess: 30, transparent: true, opacity: 0.7 });
+  // 半透明球は消した（固定位置の 4 か所）。下の細柱と、ほかの木の並びは前のまま残すため、乱数は前と同じだけ引いておく
   [{ x: 2, z: 2 }, { x: -2, z: -2 }, { x: 2, z: -2 }, { x: -2, z: 2 }].forEach(({ x, z }) => {
-    const ball = new THREE.Mesh(ballGeo, transmat);
-    ball.position.set(x, (rand() * 2 - 1) * 0.5 + 1.5, z);
-    ball.scale.set(1.2 * 1.2, 1.0 * 0.6, 1.2 * 1.2);
-    ball.rotation.y = rand() * Math.PI * 2;
-    ball.castShadow = true;
-    group.add(ball);
+    rand(); rand();
     ballPositions.push({ x, z });
   });
 

@@ -8,7 +8,7 @@ Three.js 3Dパーツライブラリ
 - `sabchan.jsx` — サブちゃん・プレイヤーアバター・`createSabchan(scene)` / `animateSabchan(parts, t)`
 - `kummo.jsx` — 雲生き物 kummo・`createKummo()`
 - `gummo.jsx` — 雲生き物 gummo・`createGummo()`
-- `forest1.jsx` — ローポリ球群の森・`createForest1()`・シード固定乱数・半透明球あり
+- `forest1.jsx` — ローポリ球群の森・`createForest1()`・シード固定乱数
 - `lowpoly_rock01.js` — 岩・ローポリ・`createRock01Group(seed)`
 - `lowpoly-grass1.jsx` — 草・ローポリ・`createLowpolyGrass1()`
 - `2dgrass.js` — 板ポリ草の房・`create2DGrass()` / `create2DGrassField(positions)`（InstancedMesh）・山1つ/2つ/3つの板3枚を10°ずつ傾けて束ねる・原点=根元の中心・下部は地面にめり込ませて使う・テクスチャはPNGをdata URIで内蔵（形は workspace/2dgrass.html と同じ）
