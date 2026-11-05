@@ -11,6 +11,7 @@ import { GONDOLA_LAYOUT } from './gondola.js';
 //    ティアラ 2 つ（帯 1 つ＋とげ 5 本ずつ）は作業台と同じ形を作って GONDEER_LAYOUT で置き、1 色なので 1 つのメッシュにまとめる
 //    userData.walkable: 上を歩けるメッシュ（体と十二面体）
 //    userData.bodyBox: 体と十二面体を囲む箱（原点の座標。埋める深さを決める用）
+//    userData.walls: ティアラの帯に沿った当たり判定の線分 [x1, z1, x2, z2]（原点の座標の XZ。上下へ無限に伸びた壁として使う。橋の手すりと同じ考え方）
 // ============================================================
 
 // 作業台（workspace/gondeer.html）で整えた配置。パーツごとの、gondeer の原点から見た 4x4 行列と色
@@ -68,6 +69,19 @@ export function createGondeer() {
   tiara.name = 'tiara';
   tiara.castShadow = true;
   group.add(tiara);
+  // 当たり判定：帯の高さの真ん中を通る半円を WALL_SEG 本の線分に分け、作業台の配置で動かして XZ に落とす
+  const WALL_SEG = 8;
+  const walls = [];
+  for (const k of [5, 11]) {
+    const mat = new THREE.Matrix4().fromArray(GONDEER_LAYOUT[k].m);
+    const pts = [];
+    for (let i = 0; i <= WALL_SEG; i++) {
+      const a = -Math.PI / 2 + Math.PI * i / WALL_SEG;
+      pts.push(new THREE.Vector3(Math.sin(a) * TIARA_R * 1.02, BAND_H / 2, Math.cos(a) * TIARA_R * 1.02).applyMatrix4(mat));
+    }
+    for (let i = 0; i < WALL_SEG; i++) walls.push([pts[i].x, pts[i].z, pts[i + 1].x, pts[i + 1].z]);
+  }
+  group.userData.walls = walls;
   group.userData.walkable = [meshes[0], meshes[1]];
   group.userData.bodyBox = new THREE.Box3().setFromObject(meshes[0]).union(new THREE.Box3().setFromObject(meshes[1]));
   return group;
