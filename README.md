@@ -45,7 +45,7 @@ Three.js 3Dパーツライブラリ
 - `sshall.js` — SShall・`createSShall()`・原点=塔の中心の地面・+z が正面（扉の向き）・高さ7.5m（塔の円錐屋根の先）・円筒の塔（12分割）の手前に正面の棟（アーチの両開き扉と石段）、奥の右に棟・`userData.colliders` に当たり判定の矩形3つ（棟2つと塔。`userData.footprint` を持つ Object3D。原点が外形の中心ではないので分けて渡す）（形は workspace/sshall.html と同じ）
 - `light01.js` — ライト・`createLight01()` / `createLight01Pole()`（棒だけ）/ `createLight01Head()`（頭だけ＝棒以外）・サブちゃんの頭（顔なし・耳付き）を横のリングに載せ、四角柱の棒で立てた形・頭がサブちゃんと同じ大きさになるようモデル単位を 0.168 倍（coccolith の SAB_SCALE と同じ）・全体の高さ約4.2m（棒3.1m＋頭1.1m）・頭（球）は発光（emissive）・`userData.lamp` が光の位置（頭の中心。ローカル座標。光源を置く用）・棒の原点=下端で `userData.top` が上端の高さ・頭の原点=リングの中心（棒の上端に合わせる点）・`createLight01()` の原点=棒の下端・`userData.footprint` は棒のまわりのみ・頭と組み合わせは mergeStatic で色ごとに4メッシュにまとめる（形は workspace/light01.html と同じ）
 - `hoisun.js` — hoisun（ほいすん・白）/ hoason（ほあそん・暗い紫）・`createHoisun()` / `createHoason()`（`createHoisun(HOISUN_COLORS.xxx)` で色を指定）・形は同じで色違い・顔の付いた箱に台形の屋根、下に壁の並ぶ台と床板、左右の扉から U 字のすべり台・原点=地面、左右の中央、正面から1.8m奥・+z が正面・幅3.8m（すべり台を含めて約6.7m）×奥行き3.5m（床板まで）×高さ3.45m・`userData.colliders` に当たり判定の矩形3つ（建物と左右のすべり台。`userData.footprint` を持つ Object3D）・mergeStatic でマテリアルごとにまとめる（形は workspace/hoisun.html と同じ）
-- `gojunoto.js` — 五重塔・`createGojunoto()`・原点=底面の中心・+z が正面（どの面も同じ形）・高さ約13m（`userData.height`）・基壇（上面は浅い屋根の形）の上にこげ茶の胴と軒先の四隅が反る屋根を3段、いちばん上は先のとがった四角錐の屋根・胴4段は1メッシュ・角と屋根の稜線に輪郭線（EdgesGeometry）・寸法と色は `GOJUNOTO_SIZE`・`userData.footprint` は基壇（形は workspace/gojunoto.html と同じ）
+- `gojunoto.js` — 五重塔・`createGojunoto()`・原点=底面の中心・+z が正面（どの面も同じ形）・高さ約12m（`userData.height`。基壇は原点より下へも沈めてある）・基壇（上面は浅い屋根の形）の上にこげ茶の胴と軒先の四隅が反る屋根を3段、いちばん上は先のとがった四角錐の屋根・胴4段は1メッシュ・屋根の裏（下面）は胴と同じ色で1メッシュ・作業台で整えた位置と倍率は `LAYOUT`・角と屋根の稜線に輪郭線（EdgesGeometry）・寸法と色は `GOJUNOTO_SIZE`・`userData.footprint` は基壇（形は workspace/gojunoto.html と同じ）
 
 ## workspace（作業台）
 
