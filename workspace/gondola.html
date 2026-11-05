@@ -798,11 +798,36 @@ updateGroupBtns();
 // gondola のたたき台：顔のある雲生き物 kummo（parts/kummo.jsx。coccolith の空を回遊しているもの）を真ん中に置く
 const kummo=createKummo(); kummo.name='kummo'; addObject(kummo);
 
+// 木の芽 🌱：頭のてっぺんに茎1本と葉っぱ2枚（V字に開く）。各パーツの原点は根元なので、回すと根元を軸に傾く
+const sprout=new THREE.Group(); sprout.name='sprout';
+const seatSprout=()=>{sprout.position.y=new THREE.Box3().setFromObject(kummo).max.y-0.08;};   // 頭のいちばん高いところに少しめり込ませる
+seatSprout();
+const sproutMat=new THREE.MeshPhongMaterial({color:0x7cc46a,flatShading:true,shininess:30});
+// 茎：細い6角柱。原点=下端
+const stemH=0.45;
+const stemGeo=new THREE.CylinderGeometry(0.035,0.05,stemH,6,1); stemGeo.translate(0,stemH/2,0);
+const stem=new THREE.Mesh(stemGeo,sproutMat); stem.name='茎'; stem.castShadow=true;
+sprout.add(stem);
+// 葉っぱ：つぶした20面体を根元から外へのばした形。原点=根元（茎の上端）
+function makeLeaf(side){
+  const g=new THREE.IcosahedronGeometry(0.2,0);
+  g.scale(1.0,0.28,0.6); g.translate(0.2,0,0);          // 根元を原点に
+  const leaf=new THREE.Mesh(g,sproutMat);
+  leaf.name=side>0?'葉 右':'葉 左';
+  leaf.position.y=stemH;
+  if(side<0)leaf.rotation.y=Math.PI;                     // 左は向きを反対に
+  leaf.rotation.z=0.45;                                  // 根元から斜め上へ開く（y で反転してから傾くので左右とも同じ値）
+  leaf.castShadow=true;
+  return leaf;
+}
+sprout.add(makeLeaf(1),makeLeaf(-1));
+addObject(sprout);
+
 
 
 // 置き終わったら：保存があればその配置にする
 updateHUD();
-if(hasSave())loadLayout();
+if(hasSave()){loadLayout();seatSprout();}   // 保存で kummo の形が変わっていても芽を頭に載せる
 
 resize();
 window.addEventListener("resize",resize);
