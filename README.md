@@ -3,6 +3,17 @@ Three.js 3Dパーツライブラリ
 
 > すべてのファイルは `createXXX()` 関数を export するファクトリー形式。`scene.add()` で使用。React 不要。
 
+## 新しいオブジェの作り方（作業の流れ）
+
+1. **作業台を開く**：`python3 serve.py`（ポート 5180。このフォルダを配る）で `http://localhost:5180/workspace/<名前>.html` を開く
+   - `python3 -m http.server` ではなく serve.py を使う（.jsx も JavaScript として返すので、作業台から `parts/*.jsx` をそのまま import できる。キャッシュもさせない）
+2. **作業台を作る**：`workspace/editor.html` を `workspace/<名前>.html` に写し、もとにする既存のオブジェ（`createXXX()`）やスケッチから作った形を置く
+   - 置くコードは `// ===== ここにパーツを置く =====` の所に書く（その下の「保存があればその配置にする」より前。後ろに書くと、開いたとき保存した配置が戻らない）
+   - 作業台のパーツの原点が回転・拡大縮小の中心。左右対称は x=0 が鏡の面
+   - 保存（💾）はページの名前ごとにブラウザに残るので、作業台の名前を変えたら保存も写す
+3. **部品にする**：作業台で整えた配置（各パーツの、オブジェの原点から見た 4x4 行列と色）を `parts/` か `landmark/` の `createXXX()` に焼き込む（例：`gondola.js` の `GONDOLA_LAYOUT`、`gondeer.js` の `GONDEER_LAYOUT`）。この README の一覧に書き足す
+4. **coccolith に入れる**：coccolith ではこのフォルダがサブモジュール（`coccolith/my-3d-parts`）なので、ここで main にコミット・push してから、coccolith でサブモジュールの参照ごとコミット・push する
+
 ## parts（自然物・キャラクター）
 
 - `sabchan.jsx` — サブちゃん・プレイヤーアバター・`createSabchan(scene)` / `animateSabchan(parts, t)`

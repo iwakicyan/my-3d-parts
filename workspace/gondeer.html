@@ -90,15 +90,7 @@
 </script>
 <script type="module">
 import * as THREE from 'three';
-// gondola.js は ./kummo.jsx を import するが、http.server は .jsx を JavaScript として返さないので、
-// kummo.jsx を blob の URL にし、gondola.js の import 先をそれに差し替えてから読み込む
-async function blobModule(path, replace={}){
-  let src=await (await fetch(new URL(path,import.meta.url))).text();
-  for(const [from,to] of Object.entries(replace)) src=src.split(from).join(to);
-  return URL.createObjectURL(new Blob([src],{type:'text/javascript'}));
-}
-const kummoUrl=await blobModule('../parts/kummo.jsx');
-const { createGondola } = await import(await blobModule('../parts/gondola.js',{"'./kummo.jsx'":"'"+kummoUrl+"'"}));
+import { createGondola } from '../parts/gondola.js';   // .jsx を JavaScript として返すサーバー（serve.py）で開く
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 (function() {
