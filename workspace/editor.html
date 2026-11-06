@@ -48,7 +48,7 @@
       <button id="hud-close" title="一覧をしまう">◀</button>
     </div>
     <div class="hud-list" id="hud-list"><span style="color:#ccc">（なし）</span></div>
-    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>⬇ / ⬆ で配置を JSON ファイルに書き出し・読み込み（別のブラウザへ持っていく用）<br>空いている所をドラッグで回転 / スクロールでズーム</div>
+    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>⬇ / ⬆ で配置を JSON ファイルに書き出し・読み込み（別のブラウザへ持っていく用）<br>空いている所をドラッグで回転 / スクロールでズーム<br>右・中ボタンのドラッグ、または 🤚 視点移動（H）中の左ドラッグで視点を平行移動 / ⌖（F）で視点を最初に戻す</div>
   </div>
   <button id="hud-open" title="一覧を出す">▶ 一覧</button>
   <button id="wf-btn">🔲 ワイヤーフレーム ON</button>
@@ -58,6 +58,9 @@
     <button id="mode-scale">⤢ 拡大縮小 (S)</button>
     <hr>
     <button id="drag-mirror" class="on">↔ 左右対称 ON</button>
+    <hr>
+    <button id="view-pan" title="H（右・中ボタンのドラッグはいつでも視点移動）">🤚 視点移動 (H)</button>
+    <button id="view-reset" title="F">⌖ 視点を戻す (F)</button>
     <hr>
     <button id="drag-group" title="⌘/Ctrl+G">▣ グループ化</button>
     <button id="drag-ungroup" title="⌘/Ctrl+Shift+G">▢ グループ解除</button>
@@ -195,10 +198,28 @@ const updateCam=()=>{
 };
 updateCam();
 
+// 視点の平行移動（ハンドツール）：注視点を画面の右・上の向きに動かす。マウスの下の点がついてくる量にする
+let panMode=false, panning=false;
+const panBtn=document.getElementById('view-pan');
+const setPanMode=on=>{panMode=on;panBtn.classList.toggle('on',on);canvas.style.cursor=on?'grab':'';};
+panBtn.addEventListener('click',()=>setPanMode(!panMode));
+const VIEW0={theta,phi,R_val,tgt:tgt.clone()};
+const resetView=()=>{({theta,phi,R_val}=VIEW0);tgt.copy(VIEW0.tgt);updateCam();};
+document.getElementById('view-reset').addEventListener('click',resetView);
+const panBy=(dx,dy)=>{
+  const k=2*R_val*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/canvas.clientHeight;
+  const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
+  const up=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
+  tgt.addScaledVector(right,-dx*k).addScaledVector(up,dy*k);
+  updateCam();
+};
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
 let downX=0,downY=0;
-canvas.addEventListener("mousedown",e=>{if(tc.dragging||tc.axis)return;if(partDown(e.clientX,e.clientY,e))return;dragging=true;prevX=downX=e.clientX;prevY=downY=e.clientY;});
-window.addEventListener("mouseup",e=>{if(dragging&&Math.hypot(e.clientX-downX,e.clientY-downY)<4&&e.target===canvas)selectPart(null);dragging=false;partUp();});
-window.addEventListener("mousemove",e=>{if(partMove(e.clientX,e.clientY,e))return;if(!dragging){partHover(e.clientX,e.clientY);return;}theta-=(e.clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.clientY-prevY)*0.007));prevX=e.clientX;prevY=e.clientY;updateCam();});
+canvas.addEventListener("mousedown",e=>{
+  if(e.button!==0||panMode){if(e.button===0&&(tc.dragging||tc.axis))return;e.preventDefault();panning=true;prevX=e.clientX;prevY=e.clientY;if(panMode)canvas.style.cursor='grabbing';return;}
+  if(tc.dragging||tc.axis)return;if(partDown(e.clientX,e.clientY,e))return;dragging=true;prevX=downX=e.clientX;prevY=downY=e.clientY;});
+window.addEventListener("mouseup",e=>{if(panning){panning=false;if(panMode)canvas.style.cursor='grab';return;}if(dragging&&Math.hypot(e.clientX-downX,e.clientY-downY)<4&&e.target===canvas)selectPart(null);dragging=false;partUp();});
+window.addEventListener("mousemove",e=>{if(panning){panBy(e.clientX-prevX,e.clientY-prevY);prevX=e.clientX;prevY=e.clientY;return;}if(partMove(e.clientX,e.clientY,e))return;if(!dragging){if(!panMode)partHover(e.clientX,e.clientY);return;}theta-=(e.clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.clientY-prevY)*0.007));prevX=e.clientX;prevY=e.clientY;updateCam();});
 canvas.addEventListener("touchstart",e=>{if(tc.dragging||tc.axis)return;if(partDown(e.touches[0].clientX,e.touches[0].clientY,{}))return;dragging=true;prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;},{passive:true});
 window.addEventListener("touchend",()=>{dragging=false;partUp();});
 window.addEventListener("touchmove",e=>{if(partMove(e.touches[0].clientX,e.touches[0].clientY,{}))return;if(!dragging)return;theta-=(e.touches[0].clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.touches[0].clientY-prevY)*0.007));prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;updateCam();},{passive:true});
@@ -624,6 +645,8 @@ window.addEventListener('keydown',e=>{
   if(k==='g')setMode('translate');
   if(k==='r')setMode('rotate');
   if(k==='s')setMode('scale');
+  if(k==='h')setPanMode(!panMode);
+  if(k==='f')resetView();
   if(e.key==='Escape')selectParts([]);
 });
 // ===== 色 =====
