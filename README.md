@@ -21,6 +21,7 @@ Three.js 3Dパーツライブラリ
 - `gummo.jsx` — 雲生き物 gummo・`createGummo()`
 - `gondola.js` — 頭に木の芽の生えた雲生き物 gondola・`createGondola()`・kummo（kummo.jsx）と芽（茎1本・葉2枚）を作業台 workspace/gondola.html で整えた配置（`GONDOLA_LAYOUT`。パーツごとの 4x4 行列と色）をジオメトリに焼き込む・原点=形の中心・+z が正面（顔）・大きさはモデル単位で幅3×長さ4×高さ1.6（`GONDOLA_BOUNDS`）・`userData.walkable` に上を歩けるメッシュ（体と十二面体）
 - `gondeer.js` — 頭の左右に半円のティアラ（帯＋先を面取りしたとげ5本。角のように立てたもの）を載せた雲生き物 gondeer・`createGondeer()`・gondola から木の芽を外し、作業台 workspace/gondeer.html で整えた配置（`GONDEER_LAYOUT`。パーツごとの 4x4 行列と色）を、kummo の 5 メッシュは `GONDOLA_LAYOUT` に重ねてジオメトリに焼き込む・ティアラ2つは1色なので1メッシュにまとめる・原点=形の中心・+z が正面（顔）・大きさはモデル単位（gondola と同じ）・`userData.walkable` に上を歩けるメッシュ（体と十二面体）・`userData.bodyBox` に体と十二面体を囲む箱・`userData.walls` にティアラの帯に沿った当たり判定の線分（原点の座標の XZ。上下へ伸びた壁）
+- `sneaker.js` — スニーカーに乗った小鳥・`createSneaker({bird, height})`（片足ぶん。bird: 'white' 左足の白い小鳥 / 'dark' 右足の黒い小鳥）/ `createSneakerFlap(root)`（`update(th)` で翼を上げる、`stop()` で元へ）・作業台で確定した配置（`SNEAKER_LAYOUT`。パーツごとの 4x4 行列）をジオメトリに焼き込む・翼以外は頂点の色の 1 メッシュ＋輪郭線 1 メッシュ、翼は左右 1 枚ずつ（1 足で描画 6 回）・輪郭線は倍率を掛ける前の形で押し出して焼き込む（作業台と同じ太さ）・原点=靴底の中心・+z が正面・height で全体の高さ[m]（モデル単位の高さ `SNEAKER_HEIGHT`）・一足は右足を -x、左足を +x に `SNEAKER_HOP.GAP` ずつ・飛ぶ動きの数値は `SNEAKER_HOP`（右足→左足の順に交互に飛び、相手より LEAD 前に着地）（形と動きは workspace/sneaker.html と同じ）
 - `forest1.jsx` — ローポリ球群の森・`createForest1()`・シード固定乱数
 - `lowpoly_rock01.js` — 岩・ローポリ・`createRock01Group(seed)`
 - `lowpoly-grass1.jsx` — 草・ローポリ・`createLowpolyGrass1()`
