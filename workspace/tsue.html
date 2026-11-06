@@ -813,7 +813,7 @@ updateGroupBtns();
 //   色を変えると自発光は変えない。material.userData.emissiveK（色に対する割合）を入れておくと色に合わせて変える
 
 // 杖（手描きスケッチから）。原点=杖の下の端・+z が正面・x=0 で左右対称。輪郭線なし
-//   柄（茶）・てっぺんの玉（白）・枠（白い管の水平な六角形。外と内の 2 つ）・葉 2 枚（茶）と葉の裏の青・柄に巻きつくらせん（白）と芯（白）
+//   柄（茶）・てっぺんの玉（白）・枠（白い管の水平な六角形。外と内の 2 つ）・葉 1 枚（茶。左だけ）と葉の裏の青・柄に巻きつくらせん（白）と芯（白）
 (function(){
   const C={stick:0x7d726b, white:0xf2f4f5, blue:0x8ee8f8};
   const GLOW=0.45;   // 自発光（色に対する割合）。スケッチのような平たい色にする
@@ -852,8 +852,8 @@ updateGroupBtns();
   const INNER=0.7;   // 内の枠の大きさ（外の枠に対する割合）
   hexFrame(245*S*INNER,210*S*INNER,'枠（内）');
 
-  // 葉：柄の左右に斜め上へ。茶の葉と、その下側の青
-  for(const sx of [-1,1]){
+  // 葉：柄の左（-x）に 1 枚だけ、斜め上へ。茶の葉と、その下側の青
+  for(const sx of [-1]){
     const side=sx<0?'左':'右';
     const leaf=new THREE.SphereGeometry(1,8,5); leaf.scale(80*S,24*S,12*S);
     add(leaf,C.stick,'葉（'+side+'）',P(640+sx*78,378),sx*0.28);
