@@ -73,14 +73,19 @@ function paint(geo, color) {
   return g;
 }
 
-// 輪郭線：板を法線の向きへ OUTLINE_W ふくらませた裏面だけの殻
-function outlineGeometry() {
+// 板を法線の向きへ w ふくらませた形（輪郭線・光る輪郭に使う）
+export function itaInflatedGeometry(w) {
   const g = boardGeometry();
   g.computeVertexNormals();
   const p = g.attributes.position, n = g.attributes.normal;
-  for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) + n.getX(i) * OUTLINE_W, p.getY(i) + n.getY(i) * OUTLINE_W, p.getZ(i) + n.getZ(i) * OUTLINE_W);
+  for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) + n.getX(i) * w, p.getY(i) + n.getY(i) * w, p.getZ(i) + n.getZ(i) * w);
   return g;
 }
+// 板の外形を w ふくらませた形の辺（木目は入れない。光る輪郭の線に使う。板の面と重ならないよう少しふくらませる）
+export const itaEdgesGeometry = (w = OUTLINE_W * 1.5) => new THREE.EdgesGeometry(itaInflatedGeometry(w), 30);
+
+// 表（+z）で字を書ける範囲（モデル単位。切れこみと下のふちの木目をよけた四角）
+export const ITA_FACE = { x0: X(210), x1: X(1050), y0: Y(1000), y1: Y(400), z: T / 2 + 0.004 };
 
 export function createIta({ width = null, glow = ITA.GLOW } = {}) {
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: new THREE.Color(glow, glow, glow) });
@@ -90,7 +95,7 @@ export function createIta({ width = null, glow = ITA.GLOW } = {}) {
   const wood = new THREE.Color(ITA.WOOD), line = new THREE.Color(ITA.LINE);
   const mesh = new THREE.Mesh(mergeGeometries([paint(boardGeometry(), wood), ...grainGeometries().map(g => paint(g, line))]), mat);
   mesh.name = '板'; mesh.castShadow = true;
-  const outline = new THREE.Mesh(outlineGeometry(), new THREE.MeshBasicMaterial({ color: line, side: THREE.BackSide }));
+  const outline = new THREE.Mesh(itaInflatedGeometry(OUTLINE_W), new THREE.MeshBasicMaterial({ color: line, side: THREE.BackSide }));
   outline.name = '板の輪郭線'; outline.userData.outline = true;
   mesh.add(outline);
   const root = new THREE.Group(); root.name = 'ita';
