@@ -7,6 +7,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 //    原点=板の下の辺の真ん中・+y が上・+z が正面。width (m) を渡すとその横幅に縮める（渡さなければモデル単位。横幅 ITA_WIDTH）
 //    板（茶。左に 1 つ・右に 2 つ V 字の切れこみ）・木目（濃い茶の細い線。表と裏）・輪郭線（濃い茶の裏返しの殻）
 //    動かないので、板と木目は 1 つのメッシュにまとめる（色は頂点の色。自発光も頂点の色 × glow でスケッチのような平たい色）
+//    userData.footprint に当たり判定の箱（halfW・halfD。モデル単位）を入れる
 //    作業台ではどのパーツも動かしていないので、配置はジオメトリを作ったそのまま
 // ============================================================
 
@@ -94,6 +95,7 @@ export function createIta({ width = null, glow = ITA.GLOW } = {}) {
   mesh.add(outline);
   const root = new THREE.Group(); root.name = 'ita';
   root.add(mesh);
+  root.userData.footprint = { halfW: ITA_WIDTH / 2, halfD: T / 2 };   // 当たり判定の箱（モデル単位。ローカル XZ の半分の幅・奥行き）
   if (width) root.scale.setScalar(width / ITA_WIDTH);
   return root;
 }
