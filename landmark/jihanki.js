@@ -156,16 +156,35 @@ export function createJihanki(){
   group.add(base);
   group.userData.base=base;
   group.userData.baseSize={w:JIHANKI.W,d:JIHANKI.D};
+  // 取り出し口に出した缶の当たり（寝かせた缶より少し大きい見えない箱。タップの当たりと、光らせる所に使う）
+  const ks=JIHANKI_TRAY_KAN, kanL=KAN.H*ks, kanD=2*KAN.R*ks;
+  const trayHit=new THREE.Mesh(new THREE.BoxGeometry(kanL+0.04,kanD+0.02,kanD+0.04),new THREE.MeshBasicMaterial({visible:false}));
+  trayHit.name='取り出し口の缶の当たり';
+  trayHit.position.y=kanD/2;
+  tray.add(trayHit);
+  group.userData.trayHit=trayHit;
+  group.userData.trayKanSize={length:kanL,diameter:kanD};
   // 取り出し口に缶を 1 本出す（横に寝かせ、ラベルを正面へ。取り出し口に収まるよう JIHANKI_TRAY_KAN 倍）。出した缶を返す
+  let trayKan=null;   // 出ている缶（寝かせるためのグループ）
   group.userData.dispenseKan=()=>{
-    const s=JIHANKI_TRAY_KAN;
-    const k=createKan(); k.scale.setScalar(s); k.position.y=-KAN.H*s/2;   // 缶の真ん中を原点へ
+    group.userData.takeKan();   // 前の缶があれば片付ける
+    const k=createKan(); k.scale.setScalar(ks); k.position.y=-kanL/2;   // 缶の真ん中を原点へ
     const holder=new THREE.Group(); holder.name='出てきた缶';
-    holder.rotation.z=Math.PI/2;           // 缶の軸（y）を横（x）へ寝かせる。ラベル（+z）は正面のまま
-    holder.position.y=KAN.R*s+0.002;       // 底に載せる
+    holder.rotation.z=Math.PI/2;      // 缶の軸（y）を横（x）へ寝かせる。ラベル（+z）は正面のまま
+    holder.position.y=kanD/2+0.002;   // 底に載せる
     holder.add(k);
     tray.add(holder);
-    return holder;
+    trayKan=holder;
+    return k;
+  };
+  group.userData.hasKan=()=>!!trayKan;
+  // 出ている缶を取り出口から外して返す（JIHANKI_TRAY_KAN 倍のまま。なければ null）
+  group.userData.takeKan=()=>{
+    if(!trayKan)return null;
+    const k=trayKan.children[0];
+    tray.remove(trayKan); trayKan.remove(k); trayKan=null;
+    k.position.set(0,0,0);
+    return k;
   };
   group.userData.footprint={halfW:JIHANKI.W/2+0.03,halfD:JIHANKI.D/2+0.05};   // 当たり判定用（ローカル XZ の矩形。本体のずれと正面の出っぱりの分を足す）
   return group;
