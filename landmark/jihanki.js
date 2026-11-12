@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createKan } from '../parts/kan.js';
+import { createKan, KAN } from '../parts/kan.js';
 
 // 自販機（jihanki）— workspace/jihanki.html と同じ形（手描きスケッチ documents/sketch/jihanki.PNG から）
 // 水色の箱の正面に、白い枠の窓（奥に缶 = parts/kan.js）・センサー・金の帯・コイン投入口（コイン箱と同じ形）・
@@ -37,6 +37,7 @@ const JIHANKI_LAYOUT={
   '取り出し口の右':       {m:[0,0,1,0, 0,1,0,0, -1,0,0,0, -0.02395,0.44654,0.2,1], color:0x45809c},
 };
 const JIHANKI_KAN_AT=[-0.02769,1.11808,0.30524];   // 缶の原点（底面の真ん中）
+const JIHANKI_TRAY_KAN=0.8;   // 取り出し口に出す缶の倍率（取り出し口の奥行き 0.25m に缶の直径 0.26m が入らないので縮める）
 
 // 正面を向いた箱（幅・高さ・厚み）。原点 = 箱の真ん中
 const boxGeo=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
@@ -136,6 +137,36 @@ export function createJihanki(){
   kan.position.fromArray(JIHANKI_KAN_AT);
   group.add(kan);
   group.userData.kan=kan;
+
+  // コイン投入口：ローカル +z が面の法線・+y が切れこみの向き・原点が円盤の表の真ん中（コイン箱の userData.slot と同じ）
+  const at=name=>new THREE.Vector3().fromArray(JIHANKI_LAYOUT[name].m,12);
+  const slot=new THREE.Object3D(); slot.name='コイン投入口の面';
+  slot.position.copy(at('コイン投入口')).add(new THREE.Vector3(0,0,JIHANKI.COIN.t));
+  group.add(slot);
+  group.userData.slot=slot;
+  group.userData.slotMeshes=['コイン投入口','コイン投入口（内側）','コインの切れこみ'].map(n=>group.getObjectByName(n));   // コインを入れる当たり
+  // 取り出し口の底の真ん中（缶を出す所）
+  const tray=new THREE.Object3D(); tray.name='取り出し口の置き場';
+  tray.position.copy(at('取り出し口の底'));
+  group.add(tray);
+  group.userData.tray=tray;
+  // 本体の底の真ん中（接地ラインを光らせる所）と本体の幅・奥行き
+  const base=new THREE.Object3D(); base.name='本体の底';
+  base.position.set(at('本体').x,0,at('本体').z);
+  group.add(base);
+  group.userData.base=base;
+  group.userData.baseSize={w:JIHANKI.W,d:JIHANKI.D};
+  // 取り出し口に缶を 1 本出す（横に寝かせ、ラベルを正面へ。取り出し口に収まるよう JIHANKI_TRAY_KAN 倍）。出した缶を返す
+  group.userData.dispenseKan=()=>{
+    const s=JIHANKI_TRAY_KAN;
+    const k=createKan(); k.scale.setScalar(s); k.position.y=-KAN.H*s/2;   // 缶の真ん中を原点へ
+    const holder=new THREE.Group(); holder.name='出てきた缶';
+    holder.rotation.z=Math.PI/2;           // 缶の軸（y）を横（x）へ寝かせる。ラベル（+z）は正面のまま
+    holder.position.y=KAN.R*s+0.002;       // 底に載せる
+    holder.add(k);
+    tray.add(holder);
+    return holder;
+  };
   group.userData.footprint={halfW:JIHANKI.W/2+0.03,halfD:JIHANKI.D/2+0.05};   // 当たり判定用（ローカル XZ の矩形。本体のずれと正面の出っぱりの分を足す）
   return group;
 }
