@@ -80,17 +80,17 @@ export function createRasen(){
     }
     for(let k=0;k<n;k++){
       const p=k*4,q=p+4;
-      for(let e=0;e<4;e++){const e1=(e+1)%4; idx.push(p+e,q+e,q+e1, p+e,q+e1,p+e1);}
+      for(let e=0;e<4;e++){const e1=(e+1)%4; idx.push(p+e,q+e1,q+e, p+e,p+e1,q+e1);}
     }
     // 両端のふた
-    idx.push(0,2,1, 0,3,2);
-    const L=n*4; idx.push(L,L+1,L+2, L,L+2,L+3);
+    idx.push(0,1,2, 0,2,3);
+    const L=n*4; idx.push(L,L+2,L+1, L,L+3,L+2);
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-    geo.setIndex(idx); geo.computeVertexNormals();
-    // 側桁の巻く向きで面の表裏が逆になってもよいように両面
-    bandMat.side=THREE.DoubleSide;
-    add(geo,bandMat,'側桁',0,0,true,31);   // 1 段 30° の折れ目には線を引かない
+    geo.setIndex(idx);
+    // 面の表は外向き。頂点を面ごとに分けて、面ごとの平らな陰影にする（角の頂点を共有すると法線が上下・内外で混ざる）
+    const flat=geo.toNonIndexed(); flat.computeVertexNormals();
+    add(flat,bandMat,'側桁',0,0,true,31);   // 段の境目の折れ目（1 段 15°）には線を引かない
   }
 
   // 芯柱
