@@ -208,6 +208,7 @@ const STEM = 0x6aa83a, LEAF = 0x8ccf3f
 const ICE_BEVEL = 0xeefbff    // 氷の面取りの面（陰影がなくても角が見えるよう、面より明るく）
 const COIN_MOUTH_W = 1.6      // コインをくわえる口の横の伸ばし具合
 const COIN_OUT = 0.4          // コインを口から前に出す量（モデル単位）
+const COIN_UP = -0.08         // コインの高さ（口の上の辺から。モデル単位）
 const COIN_R = 0.75           // くわえるコインの半径（モデル単位。高さ 1m なら約 13cm）
 
 const M4 = () => new THREE.Matrix4()
@@ -315,7 +316,7 @@ export function createAwadama({ kind = 'kirakira', height = null, glow = AWADAMA
     const p = new THREE.Vector3().setFromMatrixPosition(L('口'))
     const n = p.clone().sub(BODY_CENTER).normalize(), x = new THREE.Vector3(1, 0, 0), y = new THREE.Vector3().crossVectors(n, x)
     const anchor = new THREE.Object3D(); anchor.name = 'コインの置き場所'
-    anchor.position.copy(p).addScaledVector(n, COIN_OUT).addScaledVector(y, -0.25)
+    anchor.position.copy(p).addScaledVector(n, COIN_OUT).addScaledVector(y, COIN_UP)
     anchor.quaternion.setFromRotationMatrix(M4().makeBasis(x, y, n)).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -0.12))
       .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2))
     root.add(anchor)
