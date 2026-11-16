@@ -276,3 +276,6 @@ export function createSneakerFlap(root) {
 
 // 1 回飛ぶ間（s = 0〜1）の羽ばたきの角度（始めと終わりは小さく）
 export const sneakerFlapAngle = s => SNEAKER_HOP.FLAP * Math.sin(Math.PI * s) * Math.sin(2 * Math.PI * SNEAKER_HOP.FLAPS * s)
+
+// 形の関数（bird.js などで使い回す）
+export { headGeo, eyeGeo, wingGeo, beakGeo, outlineGeo }
