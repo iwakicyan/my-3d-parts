@@ -4,16 +4,19 @@
 //    kind: 種類（AWADAMA_KINDS のキー。スケッチ documents/sketch/awadama.webp の 7 種類 + もとの kirakira）
 //      kirakira きらきら目・半円の口 / sakasa 口が目の上（上下さかさの半円） / yoru 紺色のからだ / heart ピンクのからだ・ハートの目
 //      kuma くまの耳・ωの口 / oyako 小さい泡玉がくっついた親子 / mikan オレンジのからだ・へた（軸と葉）・＞＜の目 / maru まんまるの目と口
+//      coin コインをくわえる（コインは使う側で root.userData.coin.anchor に付ける。スケッチ documents/sketch/awadama2.webp） / kori 面取りした立方体の氷
 //    からだ：正二十面体を 1 回細かくした 80 面のまん丸（三角の面を 1 つ真下にして座らせる）。雲と同じく法線を球の中心から外向きにして、なめらかな球に見せる
 //    目 2 つ（四つ角の星）・口（上が平らな半円）。それぞれ青い複製を少し大きくして後ろに敷き、輪郭にしている
 //    作業台で確定した配置（AWADAMA_LAYOUT。パーツごとの 4x4 行列と色）をジオメトリに焼き込む
 //    からだ・目・口は 1 メッシュ（頂点の色）にまとめ、からだの輪郭線を 1 メッシュ。1 つで描画 2 回
 //    height: 全体の高さ [m]。null ならモデル単位のまま（高さ AWADAMA_HEIGHT）
 //    shade: false なら光を受けず陰影がつかない（色そのままの MeshBasicMaterial）。true なら Lambert で陰影をつけ、glow だけ自発光
+//    root.userData.coin（kind: 'coin' のときだけ）: { anchor: コインを付ける Object3D（+z が表）, radius: コインの半径（モデル単位） }
 //    colors: パーツの色の差し替え（AWADAMA_LAYOUT のパーツ名がキー。例 { 'からだ': 0x5c90bc }）。null ならそのまま
 // ============================================================
 import * as THREE from 'three'
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js'
 
 export const AWADAMA = {
   OUTLINE: 0.09,      // からだの輪郭線の厚み（モデル単位）
@@ -125,6 +128,26 @@ function leafGeo() {
   s.moveTo(0, 0); s.quadraticCurveTo(0.6, 0.55, 1.3, 0.08); s.quadraticCurveTo(0.7, -0.4, 0, 0)
   return new THREE.ExtrudeGeometry(s, { depth: THICK, bevelEnabled: false, curveSegments: 4 })
 }
+// 氷：辺を面取りした立方体（一辺 = AWADAMA_HEIGHT・いちばん下が y=0）。part: 'face' 6 つの面 / 'bevel' 面取りの斜めの面と角
+const ICE_CHAMFER = 0.4
+function iceGeo(part) {
+  const h = AWADAMA_HEIGHT / 2, a = h - ICE_CHAMFER, pts = []
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1])
+    pts.push(new THREE.Vector3(sx * a, sy * a, sz * h), new THREE.Vector3(sx * a, sy * h, sz * a), new THREE.Vector3(sx * h, sy * a, sz * a))
+  const c = new ConvexGeometry(pts), g = c.index ? c.toNonIndexed() : c
+  const P = g.attributes.position, keep = []
+  const v = [0, 1, 2].map(() => new THREE.Vector3()), n = new THREE.Vector3(), e = new THREE.Vector3()
+  for (let i = 0; i < P.count; i += 3) {
+    for (let j = 0; j < 3; j++) v[j].fromBufferAttribute(P, i + j)
+    n.subVectors(v[1], v[0]).cross(e.subVectors(v[2], v[0])).normalize()
+    const isFace = Math.max(Math.abs(n.x), Math.abs(n.y), Math.abs(n.z)) > 0.99
+    if (isFace === (part === 'face')) for (const w of v) keep.push(w.x, w.y + h, w.z)
+  }
+  const out = new THREE.BufferGeometry()
+  out.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3))
+  return out
+}
+const iceFace = () => iceGeo('face'), iceBevel = () => iceGeo('bevel'), iceAll = () => mergeGeometries([iceFace(), iceBevel()])
 const stemGeo = () => new THREE.CylinderGeometry(0.11, 0.13, 1.2, 5)
 const earGeo = () => new THREE.IcosahedronGeometry(1.05, 1)
 
@@ -175,11 +198,15 @@ export const AWADAMA_KINDS = {
   oyako:    { body: null },
   mikan:    { body: 0xfdb168 },
   maru:     { body: null },
+  coin:     { body: null },
+  kori:     { body: 0xcfeefa },
 }
 const EDGE = 0x567ea4         // 白い目・口の輪郭（後ろに敷く複製）の色
 const STROKE = 0x1e2b55       // 線で描く目・口（ω・＞＜）の色
 const EYE_W = 0xeaf3f6, MOUTH_W = 0xeef6f8
 const STEM = 0x6aa83a, LEAF = 0x8ccf3f
+const ICE_BEVEL = 0xeefbff    // 氷の面取りの面（陰影がなくても角が見えるよう、面より明るく）
+const COIN_R = 0.75           // くわえるコインの半径（モデル単位。高さ 1m なら約 13cm）
 
 const M4 = () => new THREE.Matrix4()
 const L = name => M4().fromArray(AWADAMA_LAYOUT[name].m)
@@ -193,11 +220,26 @@ const withEdge = (name, shape, M, c) => [
 ]
 const STAR = ['目（右）', '目（右）（複製）', '目（左）', '目（左）（複製）']
 const MOUTH = ['口', '口（複製）']
+// 作業台で決めた、白いパーツに対する輪郭（複製）の行列（パーツの座標で）
+const edgeRel = name => L(name).invert().multiply(L(name + '（複製）'))
 const fromLayout = names => names.map(name => ({ name, shape: SHAPES[name], M: L(name), c: AWADAMA_LAYOUT[name].c }))
 
 // 種類ごとのパーツ（shape・行列 M・色 c・key: colors で差し替えるときの名前・smooth: なめらかにする球の中心（モデルの座標））と、輪郭線をつけるもの（geo・M・d: 厚み）
 function kindParts(kind) {
   const body = { name: 'からだ', key: 'からだ', shape: bodyGeo, M: L('からだ'), c: AWADAMA_KINDS[kind]?.body ?? AWADAMA_LAYOUT['からだ'].c, smooth: BODY_CENTER.clone() }
+  if (kind === 'kori') {
+    // 氷：面取りした立方体の正面（+z の平らな面）に、きらきら目と半円の口をまっすぐ貼る
+    const parts = [{ ...body, shape: iceFace, smooth: null }, { name: '面取り', shape: iceBevel, M: M4(), c: ICE_BEVEL }]
+    const h = AWADAMA_HEIGHT / 2, z = h + 0.01
+    const flatOn = (x, y, name) => { const s = new THREE.Vector3(); L(name).decompose(new THREE.Vector3(), new THREE.Quaternion(), s); return M4().makeTranslation(x, y, z).multiply(M4().makeScale(s.x, s.y, s.z)) }
+    for (const [name, x] of [['目（右）', -1.15], ['目（左）', 1.15]]) {
+      const M = flatOn(x, h + 1.2, name)
+      parts.push({ name, shape: eyeGeo, M, c: EYE_W }, { name: name + '（複製）', shape: eyeGeo, M: M.clone().multiply(edgeRel(name)), c: EDGE })
+    }
+    const mM = flatOn(0, h + 0.75, '口')
+    parts.push({ name: '口', shape: mouthGeo, M: mM, c: MOUTH_W }, { name: '口（複製）', shape: mouthGeo, M: mM.clone().multiply(edgeRel('口')), c: EDGE })
+    return { parts, lines: [{ geo: iceAll, M: M4(), d: AWADAMA.OUTLINE }] }
+  }
   const parts = [body], lines = [{ geo: bodyGeo, M: M4(), d: AWADAMA.OUTLINE }]
   if (kind === 'sakasa') {
     // 口を目の上へ動かし、上下さかさ（平らな辺が下）にする
@@ -228,7 +270,7 @@ function kindParts(kind) {
     for (const side of ['目（右）', '目（左）']) parts.push(...withEdge(side, circleGeo(0.42), aroundX(-2).multiply(L(side)), EYE_W))
     parts.push(...withEdge('口', circleGeo(0.25), aroundX(2).multiply(L('口')).multiply(M4().makeTranslation(0, -0.2, 0)), EYE_W))
   } else {
-    // kirakira・yoru・oyako（oyako の子は createAwadama で足す）
+    // kirakira・yoru・oyako・coin（oyako の子と coin のコインの置き場所は createAwadama で足す）
     parts.push(...fromLayout([...STAR, ...MOUTH]))
   }
   return { parts, lines }
@@ -263,6 +305,16 @@ export function createAwadama({ kind = 'kirakira', height = null, glow = AWADAMA
   const body = new THREE.Mesh(_geos.get(key), _mats.get(matKey)); body.name = '泡玉'
   const line = new THREE.Mesh(_lines.get(kind), _lineMat); line.name = '泡玉(線)'; line.userData.outline = true
   root.add(body, line)
+  if (kind === 'coin') {
+    // コインの置き場所：口の上の辺のあたりから少し下・少し前に出し、少し傾ける。+z がコインの表（外向き）、+y が上
+    const p = new THREE.Vector3().setFromMatrixPosition(L('口'))
+    const n = p.clone().sub(BODY_CENTER).normalize(), x = new THREE.Vector3(1, 0, 0), y = new THREE.Vector3().crossVectors(n, x)
+    const anchor = new THREE.Object3D(); anchor.name = 'コインの置き場所'
+    anchor.position.copy(p).addScaledVector(n, 0.12).addScaledVector(y, -0.25)
+    anchor.quaternion.setFromRotationMatrix(M4().makeBasis(x, y, n)).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -0.12))
+    root.add(anchor)
+    root.userData.coin = { anchor, radius: COIN_R }
+  }
   if (kind === 'oyako') {
     const child = createAwadama({ glow, colors, shade })
     child.scale.setScalar(OYAKO_CHILD.scale); child.position.set(...OYAKO_CHILD.pos); child.rotation.y = OYAKO_CHILD.rotY
