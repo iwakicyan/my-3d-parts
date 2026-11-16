@@ -234,7 +234,7 @@ function kindParts(kind) {
   return { parts, lines }
 }
 // oyako の子：右下の手前にくっつく小さい泡玉（大きさ・置き場所・向き）
-const OYAKO_CHILD = { scale: 0.45, pos: [2.9, 3.0, 1.1], rotY: -0.25 }
+const OYAKO_CHILD = { scale: 0.45, pos: [2.9, 2.55, 1.1], rotY: -0.25 }
 
 // いくつ作っても、同じ種類・同じ色・同じ glow なら形とマテリアルは 1 つを使い回す
 const _geos = new Map(), _mats = new Map(), _lines = new Map()
