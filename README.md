@@ -44,7 +44,7 @@ Three.js 3Dパーツライブラリ
 - `Materis3.jsx` — ライム発光・`createMateris3()`・emissive(0x88ff22)
 - `Materis4.jsx` — ワイヤー・`createMateris4()`・青/wireframe:true
 - `Materis5.jsx` — 頂点カラー・`createMateris5()`・赤↔青グラデーション
-- `bluedog.js` — 水色の犬 bluedog・`createBluedog({colors, layout, height, merge})`（merge: true で動く部分＝脚4本・しっぽ・体ごとに頂点の色の1メッシュ＋輪郭線1メッシュへまとめる。1匹で描画12回） / `createBluedogWalk(root)`（`update(t, amp)` で歩く姿勢、`stop()` で元の形）・作業台で確定した配置（`BLUEDOG_LAYOUT`。パーツごとの 4x4 行列）をジオメトリに焼き込む・原点=足元の中心・+z が正面・height で全体の高さ[m]（モデル単位の高さ `BLUEDOG_HEIGHT`=3.13）・Lambert（自発光は色の1割 `BLUEDOG.GLOW`）＋紺の輪郭線（法線方向に押し出した裏面）・歩くモーションは対角の脚を腰を軸に振り、体を上下、しっぽを左右（`userData.walk` の役割で見分ける。root の座標で計算するので root ごと動かしてよい）（形は workspace/bluedog.html と同じ）
+- `bluedog.js` — 水色の犬 bluedog・`createBluedog({colors, layout, height, merge})`（merge: true で動く部分＝脚4本・しっぽ・体ごとに頂点の色の1メッシュ＋輪郭線1メッシュへまとめる。1匹で描画12回） / `createBluedogWalk(root)`（`update(t, amp)` で歩く姿勢、`stop()` で元の形） / `createBluedogInstances(count, {height})`（たくさんの bluedog をまとめて描く。何匹でも描画 12 回。`set(i, matrix, t, amp)`）・作業台で確定した配置（`BLUEDOG_LAYOUT`。パーツごとの 4x4 行列）をジオメトリに焼き込む・原点=足元の中心・+z が正面・height で全体の高さ[m]（モデル単位の高さ `BLUEDOG_HEIGHT`=3.13）・Lambert（自発光は色の1割 `BLUEDOG.GLOW`）＋紺の輪郭線（法線方向に押し出した裏面）・歩くモーションは対角の脚を腰を軸に振り、体を上下、しっぽを左右（`userData.walk` の役割で見分ける。root の座標で計算するので root ごと動かしてよい）（形は workspace/bluedog.html と同じ）
 - `mergeStatic.js` — 動かない部品のメッシュ・輪郭線をマテリアルごとに1つへまとめる・`mergeStatic(group, {keep})`・見た目はそのままで描画の回数を減らす（スマホ向け）・透明なマテリアル・隠してあるもの・`keep(obj)` が true のものはそのまま・当たり判定の Object3D は残す・Frame / Materis / forest1 / chairtree / saku_1 / bridge01 / light01 が使用
 
 ## landmark（建造物）

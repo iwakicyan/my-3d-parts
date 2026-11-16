@@ -7,6 +7,7 @@
 //    merge: true なら動く部分（脚 4 本・しっぽ・それ以外の体）ごとに、パーツを色つきの 1 メッシュ＋輪郭線 1 メッシュへまとめる
 //           （描画 1 匹 12 回。色は頂点の色で持つ。動く部分は userData.walkUnit の Group で、腰などの軸は userData.pivot）
 //  createBluedogWalk(root): 歩くモーション。update(t, amp) で t 秒の姿勢、stop() で元の形
+//  createBluedogInstances(count, {height, colors}): たくさんの bluedog をまとめて描く（描画 12 回）。set(i, matrix, t, amp) で i 匹目を置いて歩く姿勢に、commit() で送る
 //  輪郭線は法線方向に押し出した裏面（userData.outline のメッシュ。本体の子）
 //  userData.walk に歩くときの役割（脚・爪・棒・しっぽ・胴）
 // ============================================================
@@ -390,5 +391,40 @@ export function createBluedogWalk(root,opt={}){
       }
     },
     stop(){movers.forEach(m=>{m.obj.position.copy(m.base.p);m.obj.quaternion.copy(m.base.q);m.obj.scale.copy(m.base.s);});},
+  };
+}
+
+// ===== たくさんの bluedog をまとめて描く（インスタンス描画） =====
+// createBluedogInstances(count, {height, colors}) → { group, set(i, matrix, t, amp), commit() }
+//   動く部分（脚 4 本・しっぽ・体）ごとの本体と輪郭線を、それぞれ count 匹ぶん 1 回で描く。何匹でも描画 12 回
+//   set: i 匹目を matrix（足元の中心・+z が正面の、世界での行列。大きさは height で決まるので入れない）に置き、
+//        歩くモーションの t 秒・大きさ amp の姿勢にする（amp=0 で基本の形）。commit: set し終えたら呼ぶ
+//   姿勢は見本の 1 匹（createBluedog({merge:true}) + createBluedogWalk）を動かして、動く部分ごとの行列を写す
+//   画面の外でも描く（frustumCulled = false。星じゅうに散らばるので、まとめた外接球では外せない）。影は落とさない
+export function createBluedogInstances(count,{height=1,colors=BLUEDOG_COLORS}={}){
+  const model=createBluedog({colors,merge:true});
+  const walk=createBluedogWalk(model);
+  const S=new THREE.Matrix4().makeScale(height/BLUEDOG_HEIGHT,height/BLUEDOG_HEIGHT,height/BLUEDOG_HEIGHT);
+  const group=new THREE.Group(); group.name='bluedogs';
+  const units=model.children.filter(c=>c.userData.walkUnit).map(u=>({u,ims:u.children.filter(c=>c.isMesh).map(m=>{
+    const im=new THREE.InstancedMesh(m.geometry,m.material,count); im.name=m.name;
+    im.frustumCulled=false; im.castShadow=false; im.receiveShadow=false;
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    group.add(im); return im;
+  })}));
+  const _M=new THREE.Matrix4(), _U=new THREE.Matrix4();
+  let posed=false;
+  return {
+    group,
+    set(i,matrix,t=0,amp=0){
+      if(amp>0){walk.update(t,amp);posed=true;}else if(posed){walk.stop();posed=false;}
+      _M.multiplyMatrices(matrix,S);
+      for(const {u,ims} of units){
+        u.updateMatrix();
+        _U.multiplyMatrices(_M,u.matrix);
+        for(const im of ims)im.setMatrixAt(i,_U);
+      }
+    },
+    commit(){for(const im of group.children)im.instanceMatrix.needsUpdate=true;},
   };
 }
