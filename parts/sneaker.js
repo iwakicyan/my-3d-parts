@@ -7,6 +7,7 @@
 //    翼（笹かまぼこ）以外は 1 メッシュ（頂点の色）＋輪郭線 1 メッシュにまとめる。翼は左右 1 枚ずつ（羽ばたかせるため）。1 足で描画 6 回
 //    輪郭線は法線方向に押し出した裏面。押し出しは作業台と同じく倍率を掛ける前の形で行い（頭など大きくしたパーツは線も太い）、ジオメトリに焼き込む
 //    userData.wings: 翼の Group 2 つ（原点 = 体に近い側の端。userData.sign で +x 側が 1、-x 側が -1）
+//  createSneakerInstances(count, {height, glow}): たくさんの片足をまとめて描く（描画 9 回）。setColors(i, bird, colors) で色、set(i, matrix, flapTh) で置き場所と羽ばたき
 //  createSneakerFlap(root): 羽ばたき。update(th) で翼を前後の軸（z）まわりに th [rad] 上げる（左右は鏡写し）。stop() で元へ
 //  SNEAKER_HOP: 作業台の「飛ぶ」動きの数値（モデル単位）。右足→左足の順に交互に飛び、それぞれ相手より LEAD だけ前に着地する
 //  一足で置くときは、右足を -x、左足を +x に SNEAKER_HOP.GAP ずつずらす（+z を向いて履くので、着ける人の右が -x）
@@ -279,3 +280,81 @@ export const sneakerFlapAngle = s => SNEAKER_HOP.FLAP * Math.sin(Math.PI * s) * 
 
 // 形の関数（bird.js などで使い回す）
 export { headGeo, eyeGeo, wingGeo, beakGeo, outlineGeo }
+
+// ============================================================
+//  たくさんのスニーカー（片足ずつ）をまとめて描く（インスタンス描画）
+//  createSneakerInstances(count, { height, glow }) → { group, setColors(i, bird, colors), set(i, matrix, flapTh), commit() }
+//    どの小鳥（white / dark）・どの色の差し替えでも同じメッシュで描く（描画 9 回）
+//      色が足ごとに変わるパーツ（甲 upper・頭 head・目 eye・翼 wing）は色ごとのメッシュに分け、足ごとの色（instanceColor）を掛ける
+//      それ以外（つま先・かかと・ひも・くちばし）は頂点の色で 1 メッシュ。輪郭線は体で 1 つ、翼で左右 1 つずつ
+//    setColors(i, bird, colors): i 本目の小鳥と色の差し替え（createSneaker と同じ）。最初に 1 回
+//    set(i, matrix, flapTh): i 本目を matrix（靴底の中心・+z が正面の、世界での行列。大きさは height で決まるので入れない）に置き、翼を flapTh 上げる
+//    画面の外でも描く（frustumCulled = false）。影は落とさない
+// ============================================================
+const SNEAKER_VARY = ['upper', 'head', 'eye']   // 足ごとに色が変わる体のパーツの色の名前（翼 wing は別のメッシュ）
+
+export function createSneakerInstances(count, { height = 1, glow = SNEAKER.GLOW } = {}) {
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: new THREE.Color(glow, glow, glow) })
+  mat.onBeforeCompile = sh => {
+    sh.fragmentShader = sh.fragmentShader.replace('vec3 totalEmissiveRadiance = emissive;', 'vec3 totalEmissiveRadiance = emissive * vColor;')
+  }
+  const lineMat = new THREE.MeshBasicMaterial({ color: SNEAKER_COLORS.line, side: THREE.BackSide })
+  const WHITE = new THREE.Color(1, 1, 1)
+
+  const fixed = [], vary = Object.fromEntries(SNEAKER_VARY.map(k => [k, []])), bodyLines = [], wings = []
+  for (const [name, make, colorKey, outline] of partList()) {
+    const M = new THREE.Matrix4().fromArray(SNEAKER_LAYOUT[name])
+    const geo = make()
+    const isVary = colorKey in vary || colorKey === 'wing'
+    const g = paint(plain(geo).applyMatrix4(M), isVary ? WHITE : new THREE.Color(SNEAKER_COLORS[colorKey]))
+    g.computeVertexNormals()
+    const line = outline ? outlineGeo(geo, SNEAKER.OUTLINE).applyMatrix4(M) : null
+    if (name.startsWith('翼')) wings.push({ g, line })
+    else {
+      (colorKey in vary ? vary[colorKey] : fixed).push(g)
+      if (line) bodyLines.push(line)
+    }
+  }
+  const S = new THREE.Matrix4().makeScale(height / SNEAKER_HEIGHT, height / SNEAKER_HEIGHT, height / SNEAKER_HEIGHT)
+  const group = new THREE.Group(); group.name = 'sneakers'
+  const make = (geo, m, name, colored) => {
+    const im = new THREE.InstancedMesh(geo, m, count); im.name = name
+    im.frustumCulled = false; im.castShadow = false; im.receiveShadow = false
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    if (colored) for (let i = 0; i < count; i++) im.setColorAt(i, WHITE)
+    group.add(im); return im
+  }
+  // 体：色の変わらない部分 / 色の名前ごと（instanceColor に色を入れる）/ 輪郭線
+  const fixedIM = make(mergeGeometries(fixed), mat, '靴と体', true)
+  const varyIM = SNEAKER_VARY.map(k => ({ key: k, im: make(mergeGeometries(vary[k]), mat, k, true) }))
+  const lineIM = make(mergeGeometries(bodyLines), lineMat, '靴と体(線)', false)
+  // 翼：体に近い側の端（pivot）を原点にして、そこを軸に前後の軸（z）まわりに上げる
+  const wingIMs = wings.map(({ g, line }, n) => {
+    g.computeBoundingBox()
+    const box = g.boundingBox, c = box.getCenter(new THREE.Vector3()), sign = c.x >= 0 ? 1 : -1
+    const pivot = new THREE.Vector3(sign > 0 ? box.min.x : box.max.x, c.y, c.z)
+    g.translate(-pivot.x, -pivot.y, -pivot.z); line.translate(-pivot.x, -pivot.y, -pivot.z)
+    return { sign, pivot, m: make(g, mat, '翼#' + (n + 1), true), l: make(line, lineMat, '翼#' + (n + 1) + '(線)', false) }
+  })
+
+  const _M = new THREE.Matrix4(), _W = new THREE.Matrix4(), _R = new THREE.Matrix4(), _c = new THREE.Color()
+  return {
+    group,
+    setColors(i, bird = 'white', colors = null) {
+      const C = { ...SNEAKER_COLORS, ...SNEAKER_BIRDS[bird], ...(colors || {}) }
+      for (const { key, im } of varyIM) im.setColorAt(i, _c.set(C[key]))
+      for (const w of wingIMs) w.m.setColorAt(i, _c.set(C.wing))
+      for (const im of group.children) if (im.instanceColor) im.instanceColor.needsUpdate = true
+    },
+    set(i, matrix, flapTh = 0) {
+      _M.multiplyMatrices(matrix, S)
+      fixedIM.setMatrixAt(i, _M); lineIM.setMatrixAt(i, _M)
+      for (const { im } of varyIM) im.setMatrixAt(i, _M)
+      for (const w of wingIMs) {
+        _W.copy(_M).multiply(_R.makeTranslation(w.pivot.x, w.pivot.y, w.pivot.z)).multiply(_R.makeRotationZ(w.sign * flapTh))
+        w.m.setMatrixAt(i, _W); w.l.setMatrixAt(i, _W)
+      }
+    },
+    commit() { for (const im of group.children) im.instanceMatrix.needsUpdate = true },
+  }
+}
