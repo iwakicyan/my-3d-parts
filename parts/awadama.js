@@ -206,6 +206,8 @@ const STROKE = 0x1e2b55       // 線で描く目・口（ω・＞＜）の色
 const EYE_W = 0xeaf3f6, MOUTH_W = 0xeef6f8
 const STEM = 0x6aa83a, LEAF = 0x8ccf3f
 const ICE_BEVEL = 0xeefbff    // 氷の面取りの面（陰影がなくても角が見えるよう、面より明るく）
+const COIN_MOUTH_W = 1.6      // コインをくわえる口の横の伸ばし具合
+const COIN_OUT = 0.4          // コインを口から前に出す量（モデル単位）
 const COIN_R = 0.75           // くわえるコインの半径（モデル単位。高さ 1m なら約 13cm）
 
 const M4 = () => new THREE.Matrix4()
@@ -269,8 +271,11 @@ function kindParts(kind) {
   } else if (kind === 'maru') {
     for (const side of ['目（右）', '目（左）']) parts.push(...withEdge(side, circleGeo(0.42), aroundX(-2).multiply(L(side)), EYE_W))
     parts.push(...withEdge('口', circleGeo(0.25), aroundX(2).multiply(L('口')).multiply(M4().makeTranslation(0, -0.2, 0)), EYE_W))
+  } else if (kind === 'coin') {
+    // 口を横に COIN_MOUTH_W 倍に引き伸ばす（コインの置き場所は createAwadama で足す）
+    parts.push(...fromLayout(STAR), ...fromLayout(MOUTH).map(p => ({ ...p, M: p.M.clone().multiply(M4().makeScale(COIN_MOUTH_W, 1, 1)) })))
   } else {
-    // kirakira・yoru・oyako・coin（oyako の子と coin のコインの置き場所は createAwadama で足す）
+    // kirakira・yoru・oyako（oyako の子は createAwadama で足す）
     parts.push(...fromLayout([...STAR, ...MOUTH]))
   }
   return { parts, lines }
@@ -310,7 +315,7 @@ export function createAwadama({ kind = 'kirakira', height = null, glow = AWADAMA
     const p = new THREE.Vector3().setFromMatrixPosition(L('口'))
     const n = p.clone().sub(BODY_CENTER).normalize(), x = new THREE.Vector3(1, 0, 0), y = new THREE.Vector3().crossVectors(n, x)
     const anchor = new THREE.Object3D(); anchor.name = 'コインの置き場所'
-    anchor.position.copy(p).addScaledVector(n, 0.12).addScaledVector(y, -0.25)
+    anchor.position.copy(p).addScaledVector(n, COIN_OUT).addScaledVector(y, -0.25)
     anchor.quaternion.setFromRotationMatrix(M4().makeBasis(x, y, n)).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -0.12))
       .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2))
     root.add(anchor)
