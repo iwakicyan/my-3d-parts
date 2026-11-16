@@ -11,7 +11,7 @@
 //    からだ・目・口は 1 メッシュ（頂点の色）にまとめ、からだの輪郭線を 1 メッシュ。1 つで描画 2 回
 //    height: 全体の高さ [m]。null ならモデル単位のまま（高さ AWADAMA_HEIGHT）
 //    shade: false なら光を受けず陰影がつかない（色そのままの MeshBasicMaterial）。true なら Lambert で陰影をつけ、glow だけ自発光
-//    root.userData.coin（kind: 'coin' のときだけ）: { anchor: コインを付ける Object3D（+z が表）, radius: コインの半径（モデル単位） }
+//    root.userData.coin（kind: 'coin' のときだけ）: { anchor: コインを付ける Object3D（コインの表 +z が上を向くよう寝かせてある）, radius: コインの半径（モデル単位） }
 //    colors: パーツの色の差し替え（AWADAMA_LAYOUT のパーツ名がキー。例 { 'からだ': 0x5c90bc }）。null ならそのまま
 // ============================================================
 import * as THREE from 'three'
@@ -306,12 +306,13 @@ export function createAwadama({ kind = 'kirakira', height = null, glow = AWADAMA
   const line = new THREE.Mesh(_lines.get(kind), _lineMat); line.name = '泡玉(線)'; line.userData.outline = true
   root.add(body, line)
   if (kind === 'coin') {
-    // コインの置き場所：口の上の辺のあたりから少し下・少し前に出し、少し傾ける。+z がコインの表（外向き）、+y が上
+    // コインの置き場所：口の上の辺のあたりから少し下・少し前に出し、顔と直角に寝かせて（表が上）、少し傾ける。半分は口の中に入る
     const p = new THREE.Vector3().setFromMatrixPosition(L('口'))
     const n = p.clone().sub(BODY_CENTER).normalize(), x = new THREE.Vector3(1, 0, 0), y = new THREE.Vector3().crossVectors(n, x)
     const anchor = new THREE.Object3D(); anchor.name = 'コインの置き場所'
     anchor.position.copy(p).addScaledVector(n, 0.12).addScaledVector(y, -0.25)
     anchor.quaternion.setFromRotationMatrix(M4().makeBasis(x, y, n)).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -0.12))
+      .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2))
     root.add(anchor)
     root.userData.coin = { anchor, radius: COIN_R }
   }
