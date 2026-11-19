@@ -69,6 +69,7 @@ Three.js 3Dパーツライブラリ
 - `gojunoto.js` — 五重塔・`createGojunoto()`・原点=底面の中心・+z が正面（どの面も同じ形）・高さ約12m（`userData.height`。基壇は原点より下へも沈めてある）・基壇（上面は浅い屋根の形）の上にこげ茶の胴と軒先の四隅が反る屋根を3段、いちばん上は先のとがった四角錐の屋根・胴4段は1メッシュ・屋根の裏（下面）は黒で1メッシュ・作業台で整えた位置と倍率は `LAYOUT`・角と屋根の稜線に輪郭線（EdgesGeometry）・寸法と色は `GOJUNOTO_SIZE`・`userData.footprint` は基壇（形は workspace/gojunoto.html と同じ）
 - `cakestand.js` — ケーキスタンド・`createCakestand()`・原点=台座の底の中心・どの向きも同じ形・高さ約5.4m（`userData.height`）・灰色の丸い台座とラッパ形の脚から細い軸が立ち、軸から4本に枝分かれした支えで大小2枚の皿（縁が反り上がる）を受け、皿にそれぞれ丸いケーキ、てっぺんに縦長の輪を4枚組んだ飾り・皿の裏（床を向いた面）は黒で皿の子（`userData.outline=true`）・角が30°以上折れたところに輪郭線（EdgesGeometry）・寸法と色は `CAKESTAND_SIZE`・`userData.footprint` は台座のみで、円の当たり判定用に `radius` も持つ（形は workspace/cakestand.html と同じ）
 - `rasen.js` — 螺旋階段・`createRasen()`・原点=底面の中心・実寸で高さ80m（踊り場の上面。`userData.height` は芯柱の先まで）・六角柱の芯柱のまわりを三角形の踏み板（外半径8m・1周24段・1段約0.3m・11周）が回って上がり、外側に帯（側桁）が螺旋に付く・てっぺんは90°の扇の踊り場・踊り場の端から120°おきに四角柱の柱3本・寸法と色は `RASEN`・`userData.colliders` は芯柱（円）と柱3本・上を歩く床の高さは `rasenFloor(x, z, y)`（螺旋は上下に重なるので、今の足の高さから登れるいちばん高い段を返す）（形は workspace/rasen.html と同じ）
+- `mujin.js` — 無人販売所（手描きスケッチから）・`createMujin()`・4 本柱の台（横幅1.5m×奥行き0.85m×柱の高さ1.87m）に棚板と幕板、奥に黒い背板、左右の側面にカーテン、前が高く前へ 0.3m せり出す波板の屋根（横に 14 山・山 1 つを 4 分割）を斜めの支えで受ける・棚板の上に木のバット（ふたのない浅い箱）2 つ、棚の下の地面に木の箱・作業台で整えた配置（`MUJIN_LAYOUT`。パーツごとの 4x4 行列と色）を焼き込む・角に輪郭線（EdgesGeometry）・原点=床の真ん中・+z が正面・高さ約2m（`userData.height`）・`userData.footprint` 付き（形は workspace/mujin.html と同じ）
 
 ## workspace（作業台）
 
