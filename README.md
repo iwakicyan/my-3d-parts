@@ -98,4 +98,4 @@ Three.js 3Dパーツライブラリ
 - `rasen.html` — 螺旋階段の作業台・editor.html に `createRasen()` を実寸で置いたもの（スケッチ documents/sketch/柱.PNG の右）
 - `gondola.html` — gondola の作業台・editor.html に顔のある雲生き物 `createKummo()` を1体、真ん中に置き、頭のてっぺんに木の芽（sprout：緑の6角柱の茎1本と、つぶした20面体の葉2枚をV字に開いたもの。各パーツの原点は根元）を生やしたもの（新しいオブジェのたたき台）・芽は保存した配置を読み込んだあとの kummo の高さに合わせて載せ直す・.jsx は http.server が JavaScript として返さないので fetch して blob の URL から import する
 - `gondeer.html` — gondeer の作業台・editor.html に `createGondola()` を真ん中に置き、木の芽を外して、頭の x のプラス側とマイナス側に半円のティアラ（帯1つ＋とげ5本を1グループ。左右のグループは鏡写しの相手どうし）を正面どうし向かい合わせに載せたもの・頭のてっぺんを見るカメラで 0.8 まで寄れる・gondola.js が import する kummo.jsx は blob の URL に差し替えて読み込む
-- `aominoumiushi.html` — アオミノウミウシの作業台（たたき台）・editor.html（複製・削除つき）にミクロラプトルを `MICRORAPTOR_LAYOUT` と `microraptorPartGeo` からパーツごとに真ん中に置いたもの（飛ぶ動きはなし）
+- `aominoumiushi.html` — アオミノウミウシの作業台（たたき台）・editor.html（複製・削除つき）にミクロラプトルを `MICRORAPTOR_LAYOUT` と `microraptorPartGeo` からパーツごとに真ん中に置いたもの（飛ぶ動きはなし）・▶ 羽ばたく（Space）で脚の羽を付け根を通る y 軸まわりにゆっくり振る（1 秒に 0.35 回・振れ幅 25°。#1・#2 の組と #3・#4 の組を交互に、左右は鏡写し）

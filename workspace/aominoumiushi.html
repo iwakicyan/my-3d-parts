@@ -64,6 +64,8 @@
     <button id="mode-rotate">⟳ 回転 (R)</button>
     <button id="mode-scale">⤢ 拡大縮小 (S)</button>
     <hr>
+    <button id="motion-btn" title="Space">▶ 羽ばたく (Space)</button>
+    <hr>
     <button id="drag-mirror" class="on">↔ 左右対称 ON</button>
     <hr>
     <button id="view-pan" title="H（右・中ボタンのドラッグはいつでも視点移動）">🤚 視点移動 (H)</button>
@@ -183,6 +185,7 @@ function updateHUD(){
 }
 // 行をクリックで選ぶ。Shift / ⌘ / Ctrl を押しながらで選択に足す・外す
 hudList.addEventListener('click',e=>{
+  stopMotion();
   const el=e.target.closest('.part'); if(!el)return;
   const m=scene.getObjectByProperty('uuid',el.dataset.uuid);
   if(!m)return;
@@ -275,6 +278,7 @@ window.workspace={scene,addObject,removeObject,allMeshes,THREE};
 //   グループにするときも、選んだパーツの相手どうしで鏡写しのグループを一緒に作る（左右両方を選んでいれば真ん中のグループ 1 つ）
 //   真ん中のもの（頭・左右両方を入れたグループなど）は左右にずれないよう x の移動と y・z 軸の回転を止める
 // ずれは root の座標（モデル単位）で、パーツごとに元の位置・向き・倍率からの差を右下に出す（グループで動かした分も含む）。コピーで JSON にして BLUEDOG の数値へ写す用
+let stopMotion=()=>{};   // 動き（羽ばたき）を止めて元の配置に戻す。編集・保存の前に呼ぶ（中身は下の「羽ばたき」で入れる）
 const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
 const dragPlane=new THREE.Plane(), hitP=new THREE.Vector3();
 let grab=null;                 // 直接ドラッグ中 {obj, mode, offset, x0, y0}
@@ -580,6 +584,7 @@ function insertAfter(c,ref){
 }
 function forgetCopy(c){c.traverse(x=>{orig.delete(x);copyRoots.delete(x);});}
 function duplicateSelected(){
+  stopMotion();
   const units=editUnits(); if(!units.length)return;
   units.forEach(ensureOrig);
   const counters=new Map(), map=new Map(), made=[];
@@ -626,6 +631,7 @@ function untrash(t,parent){
   if(parent===t.parent){const ch=parent.children;ch.pop();ch.splice(Math.min(t.index,ch.length),0,t.obj);}
 }
 function deleteSelected(){
+  stopMotion();
   const units=editUnits(); if(!units.length)return;
   units.forEach(ensureOrig);
   const prev=sels.slice();
@@ -649,8 +655,9 @@ function resetStructure(r){
 
 // パーツを直接ドラッグ
 function partDown(x,y,e){
-  const h=pickPart(x,y);
+  let h=pickPart(x,y);
   if(!h)return false;
+  if(stopMotion()){h=pickPart(x,y);if(!h)return true;}
   const u=unitOf(h.mesh);
   if(e.shiftKey||e.metaKey||e.ctrlKey){toggleSelect(u);return true;}
   if(!(sels.length===1&&(sels[0]===u||isInside(sels[0],u))))selectParts([u]);
@@ -730,6 +737,7 @@ document.getElementById('drag-copy').addEventListener('click',()=>{
   navigator.clipboard.writeText(JSON.stringify(offsets(),null,1));
 });
 function undo(){
+  stopMotion();
   const h=history.pop(); if(!h)return;
   if(h.undo)h.undo();
   else h.list.forEach(([o,p,q,s])=>{o.position.copy(p);o.quaternion.copy(q);o.scale.copy(s);});
@@ -738,6 +746,7 @@ function undo(){
 document.getElementById('drag-undo').addEventListener('click',undo);
 // 全部戻す：グループをすべて解除してから、パーツを元の変形に戻す
 document.getElementById('drag-reset').addEventListener('click',()=>{
+  stopMotion();
   selectParts([]);
   allMeshes.forEach(r=>{if(r.isGroup)resetStructure(r);});
   origLocal.forEach((o,m)=>{m.position.copy(o.pos);m.quaternion.copy(o.quat);m.scale.copy(o.scale);});
@@ -771,6 +780,7 @@ window.addEventListener('keydown',e=>{
   if(k==='h')setPanMode(!panMode);
   if(k==='f')resetView();
   if(e.key==='Escape')selectParts([]);
+  if(e.key===' '){e.preventDefault();toggleMotion();}
 });
 // ===== 色 =====
 // 選んだパーツ（グループなら中のパーツ全部）の色を変える。左右対称 ON なら鏡写しの相手も同じ色に
@@ -858,12 +868,14 @@ function layoutData(){
   return data;
 }
 function saveLayout(){
+  stopMotion();
   localStorage.setItem(SAVE_KEY,JSON.stringify(layoutData()));
   showSaveStatus('保存しました');
 }
 // ===== JSON の書き出し・読み込み（ブラウザをまたいで配置を受け渡す。中身は保存と同じ形） =====
 const pageName=location.pathname.split('/').pop().replace(/\.html$/,'')||'workspace';
 function exportLayout(){
+  stopMotion();
   const d=new Date(), z=n=>String(n).padStart(2,'0');
   const name=`${pageName}-layout-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`;
   const url=URL.createObjectURL(new Blob([JSON.stringify(layoutData(),null,1)],{type:'application/json'}));
@@ -885,6 +897,7 @@ importInput.addEventListener('change',async()=>{
 document.getElementById('export-btn').addEventListener('click',exportLayout);
 document.getElementById('import-btn').addEventListener('click',()=>importInput.click());
 function applyLayout(data){
+  stopMotion();
   allMeshes.forEach((r,ri)=>{
     const d=data.roots[rootKey(r,ri)]; if(!d||!r.isGroup)return;
     // いまの組み立て（グループ・複製・削除）を置いたときに戻してから組み立て直す
@@ -978,9 +991,65 @@ updateGroupBtns();
 updateHUD();
 if(hasSave())loadLayout();
 
+// ===== 羽ばたき =====
+// 脚の羽を、付け根（パーツの原点）を通る上下の軸（root の y 軸）まわりにゆっくり振る
+//   #1・#2 の組と #3・#4 の組を交互に（半周期ずらす）。左右（x の − 側と + 側）は鏡写しに振る
+//   いま画面にある配置（保存した配置）から動かす。動いている間はパーツの配置を書きかえているので、パーツに触る・保存する・戻すなどの前に止めて元の配置へ戻す
+const MOTION={
+  RATE:0.35,               // 1 秒に羽ばたく回数
+  FLAP:25*Math.PI/180,     // 振れ幅[rad]
+  EASE_IN:0.8,             // 振れ幅がいっぱいになるまで[秒]
+};
+const motionBtn=document.getElementById('motion-btn');
+const YAX=new THREE.Vector3(0,1,0);
+const _R=new THREE.Matrix4(), _T=new THREE.Matrix4(), _Ti=new THREE.Matrix4(), _M=new THREE.Matrix4();
+let motion=null;
+function startMotion(){
+  if(motion)return;
+  const root=allMeshes.find(o=>o.name==='アオミノウミウシ'); if(!root)return;
+  selectParts([]);
+  root.updateMatrixWorld(true);
+  const rootInv=root.matrixWorld.clone().invert();
+  const parts=[];
+  root.traverse(m=>{
+    if(!m.isMesh||m.userData.outline||m.name!=='脚の羽')return;
+    const M0=rootInv.clone().multiply(m.matrixWorld);                       // root から見たパーツ
+    const parentInv=rootInv.clone().multiply(m.parent.matrixWorld).invert(); // root → 親
+    const pivot=new THREE.Vector3().setFromMatrixPosition(M0);              // 付け根（パーツの原点）
+    const no=m.userData.no||1;
+    parts.push({m,pos:m.position.clone(),quat:m.quaternion.clone(),scale:m.scale.clone(),M0,parentInv,pivot,
+      side:pivot.x>=0?1:-1, phase:Math.floor((no-1)/2)%2?Math.PI:0});   // #1・#2 と #3・#4 で半周期ずらす
+  });
+  if(!parts.length)return;
+  motion={t0:performance.now()/1000,parts};
+  motionBtn.textContent='■ 止める (Space)'; motionBtn.classList.add('on');
+}
+stopMotion=()=>{
+  if(!motion)return false;
+  motion.parts.forEach(p=>{p.m.position.copy(p.pos);p.m.quaternion.copy(p.quat);p.m.scale.copy(p.scale);});
+  motion=null;
+  motionBtn.textContent='▶ 羽ばたく (Space)'; motionBtn.classList.remove('on');
+  showBoxes();
+  return true;
+};
+const toggleMotion=()=>{if(!motion)startMotion();else stopMotion();};
+motionBtn.addEventListener('click',()=>{toggleMotion();motionBtn.blur();});   // フォーカスを外す（Space で二重に切りかわらないように）
+function updateMotion(){
+  if(!motion)return;
+  const t=performance.now()/1000-motion.t0, w=2*Math.PI*MOTION.RATE*t;
+  const k=Math.min(1,t/MOTION.EASE_IN);
+  motion.parts.forEach(p=>{
+    const a=p.side*MOTION.FLAP*k*Math.sin(w+p.phase);
+    _R.makeRotationAxis(YAX,a);
+    _T.makeTranslation(p.pivot.x,p.pivot.y,p.pivot.z); _Ti.makeTranslation(-p.pivot.x,-p.pivot.y,-p.pivot.z);
+    _M.copy(p.parentInv).multiply(_T).multiply(_R).multiply(_Ti).multiply(p.M0);
+    _M.decompose(p.m.position,p.m.quaternion,p.m.scale);
+  });
+}
+
 resize();
 window.addEventListener("resize",resize);
-(function animate(){requestAnimationFrame(animate);renderer.render(scene,camera);if(allMeshes.length!==_hudCount)updateHUD();})();
+(function animate(){requestAnimationFrame(animate);updateMotion();renderer.render(scene,camera);if(allMeshes.length!==_hudCount)updateHUD();})();
 
 })();
 </script>
