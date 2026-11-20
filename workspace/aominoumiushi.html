@@ -992,7 +992,7 @@ updateHUD();
 if(hasSave())loadLayout();
 
 // ===== 羽ばたき =====
-// 脚の羽を、付け根（パーツの原点）を通る上下の軸（root の y 軸）まわりにゆっくり振る
+// 脚の羽を、付け根（パーツの原点）を通る前後の軸（root の z 軸）まわりにゆっくり振り、上下（y）にパタパタ往復させる
 //   #1・#2 の組と #3・#4 の組を交互に（半周期ずらす）。左右（x の − 側と + 側）は鏡写しに振る
 //   いま画面にある配置（保存した配置）から動かす。動いている間はパーツの配置を書きかえているので、パーツに触る・保存する・戻すなどの前に止めて元の配置へ戻す
 const MOTION={
@@ -1001,7 +1001,7 @@ const MOTION={
   EASE_IN:0.8,             // 振れ幅がいっぱいになるまで[秒]
 };
 const motionBtn=document.getElementById('motion-btn');
-const YAX=new THREE.Vector3(0,1,0);
+const ZAX=new THREE.Vector3(0,0,1);
 const _R=new THREE.Matrix4(), _T=new THREE.Matrix4(), _Ti=new THREE.Matrix4(), _M=new THREE.Matrix4();
 let motion=null;
 function startMotion(){
@@ -1040,7 +1040,7 @@ function updateMotion(){
   const k=Math.min(1,t/MOTION.EASE_IN);
   motion.parts.forEach(p=>{
     const a=p.side*MOTION.FLAP*k*Math.sin(w+p.phase);
-    _R.makeRotationAxis(YAX,a);
+    _R.makeRotationAxis(ZAX,a);
     _T.makeTranslation(p.pivot.x,p.pivot.y,p.pivot.z); _Ti.makeTranslation(-p.pivot.x,-p.pivot.y,-p.pivot.z);
     _M.copy(p.parentInv).multiply(_T).multiply(_R).multiply(_Ti).multiply(p.M0);
     _M.decompose(p.m.position,p.m.quaternion,p.m.scale);
