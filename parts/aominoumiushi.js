@@ -10,6 +10,10 @@
 //  createAominoumiushiFlap(root): 羽ばたき（作業台の「▶ 羽ばたく」と同じ）
 //    羽を付け根（脚の羽の原点）を通る前後の軸（z）まわりに振って上下にパタパタ往復させる。後ろの羽と前の羽は交互、左右は鏡写し
 //    start(time) で始め、stop() で元へ。update(time) を毎フレーム呼ぶ（time は秒。省略すると performance.now()）。flapping で今の状態
+//  createAominoumiushiSwarm(count, { width | height, glow }): count 匹をまとめて描く（InstancedMesh 5 つ。何匹でも描画 5 回）
+//    set(i, matrix, t, k): i 匹目を置く。matrix = 置き先での向きと位置（原点 = いちばん下の端・+y が上・+z が正面）
+//      t = 羽ばたきの時間（秒）、k = 振れ幅の強さ（0 = 羽を止める〜1）。全部置いたら commit()
+//    group を置き先に入れる（匹は星じゅうに散らばるので、見えない所を省く判定はしない）
 //  AOMINOUMIUSHI_FLAP: 動きの数値（速さ・振れ幅）
 // ============================================================
 import * as THREE from 'three'
@@ -55,6 +59,7 @@ const PARTS = Object.entries(AOMINOUMIUSHI_LAYOUT).map(([key, { shape, color, m 
 })
 const BOX = PARTS.reduce((b, p) => b.union(p.box), new THREE.Box3())
 export const AOMINOUMIUSHI_HEIGHT = BOX.max.y - BOX.min.y   // モデル単位の高さ
+export const AOMINOUMIUSHI_WIDTH = BOX.max.x - BOX.min.x    // モデル単位の幅（羽を広げた左右の端から端）
 
 // 動かす単位に分ける：脚の羽 #1・#2 = 後ろの羽、脚の羽 #3・#4 と腕 = 前の羽、ほか = 体
 PARTS.forEach(p => {
@@ -136,4 +141,32 @@ export function createAominoumiushiFlap(root) {
     },
   }
   return api
+}
+
+// ---------- まとめて描く（群れ） ----------
+// 羽の角度：時間 t（秒）、強さ k で、後ろの羽と前の羽を半周期ずらして交互に、左右は鏡写しに
+const wingAngle = (piece, sg, t, k) => sg * AOMINOUMIUSHI_FLAP.FLAP * k * Math.sin(2 * Math.PI * AOMINOUMIUSHI_FLAP.RATE * t + (piece === 'front' ? Math.PI : 0))
+export function createAominoumiushiSwarm(count, { width = null, height = null, glow = AOMINOUMIUSHI.GLOW } = {}) {
+  if (!_mat || _mat.userData.glow !== glow) { _mat = sharedMat(glow); _mat.userData.glow = glow }
+  const scale = width ? width / AOMINOUMIUSHI_WIDTH : height ? height / AOMINOUMIUSHI_HEIGHT : 1
+  const group = new THREE.Group(); group.name = 'aominoumiushi-swarm'
+  const ids = ['body', 'back0', 'back1', 'front0', 'front1']
+  const meshes = Object.fromEntries(ids.map(id => {
+    const m = new THREE.InstancedMesh(GEOS[id], _mat, count)
+    m.name = id; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false
+    group.add(m)
+    return [id, m]
+  }))
+  const S = new THREE.Matrix4().makeScale(scale, scale, scale).multiply(new THREE.Matrix4().makeTranslation(OFFSET.x, OFFSET.y, OFFSET.z))
+  const base = new THREE.Matrix4(), A = new THREE.Matrix4(), out = new THREE.Matrix4()
+  const set = (i, matrix, t = 0, k = 0) => {
+    base.copy(matrix).multiply(S)
+    meshes.body.setMatrixAt(i, base)
+    for (const piece of ['back', 'front']) [-1, 1].forEach((sg, j) => {
+      aroundPivot(A, PIVOTS[piece][j], ZAX, k ? wingAngle(piece, sg, t, k) : 0)
+      meshes[piece + j].setMatrixAt(i, out.copy(base).multiply(A))
+    })
+  }
+  const commit = () => { for (const id of ids) meshes[id].instanceMatrix.needsUpdate = true }
+  return { group, set, commit, count, scale }
 }
