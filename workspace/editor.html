@@ -29,6 +29,9 @@
 #drag-tools button.on { background: #ffe2cc; border-color: #ff9a5a; }
 #drag-tools button:disabled { opacity: 0.45; cursor: default; }
 #eb-label .part.grp { font-weight: bold; }
+#eb-label .hud-tools { display: flex; gap: 4px; margin-top: 4px; }
+#eb-label .hud-tools button { flex: 1; background: #eef1f4; border: none; border-radius: 6px; padding: 3px 0; font-size: 11px; cursor: pointer; color: #444; white-space: nowrap; }
+#eb-label .hud-tools button:disabled { opacity: 0.4; cursor: default; }
 #drag-tools .color-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 3px 6px 3px 10px; font-size: 12px; color: #444; }
 #drag-tools .color-row input { width: 40px; height: 24px; border: none; padding: 0; background: none; cursor: pointer; }
 #drag-tools .color-row input:disabled { opacity: 0.35; cursor: default; }
@@ -47,8 +50,12 @@
       <button id="hud-info" title="操作の説明">ⓘ</button>
       <button id="hud-close" title="一覧をしまう">◀</button>
     </div>
+    <div class="hud-tools">
+      <button id="part-dup" title="⌘/Ctrl+D">⧉ 複製</button>
+      <button id="part-del" title="Delete / Backspace">🗑 削除</button>
+    </div>
     <div class="hud-list" id="hud-list"><span style="color:#ccc">（なし）</span></div>
-    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>⬇ / ⬆ で配置を JSON ファイルに書き出し・読み込み（別のブラウザへ持っていく用）<br>空いている所をドラッグで回転 / スクロールでズーム<br>右・中ボタンのドラッグ、または 🤚 視点移動（H）中の左ドラッグで視点を平行移動 / ⌖（F）で視点を最初に戻す</div>
+    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>一覧の上の ⧉ 複製（⌘/Ctrl+D）で選んだパーツ・グループを同じ位置に複製、🗑 削除（Delete）で消す（どちらも ⌘/Ctrl+Z で戻せる・左右対称 ON なら相手も一緒）<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>⬇ / ⬆ で配置を JSON ファイルに書き出し・読み込み（別のブラウザへ持っていく用）<br>空いている所をドラッグで回転 / スクロールでズーム<br>右・中ボタンのドラッグ、または 🤚 視点移動（H）中の左ドラッグで視点を平行移動 / ⌖（F）で視点を最初に戻す</div>
   </div>
   <button id="hud-open" title="一覧を出す">▶ 一覧</button>
   <button id="wf-btn">🔲 ワイヤーフレーム ON</button>
@@ -273,12 +280,15 @@ let grab=null;                 // 直接ドラッグ中 {obj, mode, offset, x0, 
 let sels=[];                   // 選んでいるもの（パーツかグループ）
 let sel=null;                  // 1 つだけ選んでいるときのそれ（ギズモを付ける）
 const orig=new Map();          // パーツ -> {pos, quat, scale, center} root の座標での元の位置・向き・倍率と形の中心
-const origLocal=new Map();     // root の中のもの（グループを含む） -> {pos, quat, scale} 親の中での元の値（全部戻す用）
+const origLocal=new Map();     // root の中のもの（グループを含む） -> {pos, quat, scale, parent, root} 親の中での元の値と元の親（全部戻す用）
+const trash=[];                // 削除したもの {obj, parent, index, root}（1つ戻す・保存・全部戻す用に取っておく）
+const copyRoots=new Map();     // 複製したパーツ -> その root
 const history=[];              // {list:[[obj, position, quaternion, scale], ...]} か {undo()}
 let mirrorOn=true, mode='translate', groupNo=0;
 const dragList=document.getElementById('drag-list');
 const mirBtn=document.getElementById('drag-mirror');
 const groupBtn=document.getElementById('drag-group'), ungroupBtn=document.getElementById('drag-ungroup');
+const dupBtn=document.getElementById('part-dup'), delBtn=document.getElementById('part-del');
 const modeBtns={translate:document.getElementById('mode-move'),rotate:document.getElementById('mode-rotate'),scale:document.getElementById('mode-scale')};
 const logToggle=document.getElementById('log-toggle'), logBody=document.getElementById('log-body');
 
@@ -330,7 +340,7 @@ function rootTf(o){
 function ensureOrig(o){
   const r=rootOf(o);
   if(!r||r.userData.origDone)return;
-  r.traverse(c=>{if(c!==r&&!c.userData.outline&&!c.isTransformControls)origLocal.set(c,{pos:c.position.clone(),quat:c.quaternion.clone(),scale:c.scale.clone()});});
+  r.traverse(c=>{if(c!==r&&!c.userData.outline&&!c.isTransformControls)origLocal.set(c,{pos:c.position.clone(),quat:c.quaternion.clone(),scale:c.scale.clone(),parent:c.parent,root:r});});
   leavesOf(r).forEach(c=>{
     const t=rootTf(c);
     c.geometry.computeBoundingBox();
@@ -356,7 +366,7 @@ function leafMirror(m){
     const t=new THREE.Vector3(-p.x,p.y,p.z);
     let best=MIRROR_TOL;
     leavesOf(rootOf(m)).forEach(c=>{
-      if(c===m||c.geometry.type!==m.geometry.type)return;
+      if(c===m||c.userData.isCopy||c.geometry.type!==m.geometry.type)return;
       const d=orig.get(c).center.distanceTo(t);
       if(d<best){best=d;res=c;}
     });
@@ -365,12 +375,12 @@ function leafMirror(m){
   return res;
 }
 function mirrorOf(o){
-  if(o.userData.isPartGroup)return o.userData.mirror||null;
+  if(o.userData.isPartGroup){const g=o.userData.mirror;return g==='self'?g:(g&&rootOf(g)?g:null);}
   const r=leafMirror(o);
   const par=o.parent, root=rootOf(o);
   const parSelf=par===root||par.userData.mirror==='self';
   if(r==='self')return parSelf?'self':null;
-  if(!r)return null;
+  if(!r||!rootOf(r))return null;
   if(r.parent===par&&parSelf)return r;
   if(par.userData.mirror===r.parent)return r;
   return null;
@@ -454,6 +464,7 @@ function markHUD(){
 function updateGroupBtns(){
   groupBtn.disabled=!(sels.length>=2&&sels.every(s=>s.parent===sels[0].parent));
   ungroupBtn.disabled=!sels.some(s=>s.userData.isPartGroup);
+  dupBtn.disabled=delBtn.disabled=!editUnits().length;
 }
 
 // ===== グループ =====
@@ -525,6 +536,116 @@ function ungroupSelected(){
 groupBtn.addEventListener('click',groupSelected);
 ungroupBtn.addEventListener('click',ungroupSelected);
 
+// ===== 複製・削除 =====
+// 選んだもの（左右対称 ON なら鏡写しの相手も）を対象にする。置いたオブジェクトそのもの（root）は対象にしない
+// 複製：同じ親の中、元のすぐ後ろに同じ位置で作る。パーツは同じ名前で新しい #番号、グループは新しい名前の作ったグループになる
+//   ジオメトリとマテリアルは元と共有（色を変えたパーツは同じ色で複製）。相手と一緒に複製したものどうしは鏡写しの相手になる
+//   ずれの一覧では、複製は元のパーツの元の位置からのずれを出す
+// 削除：シーンから外して取っておく（1つ戻す・全部戻す・保存した配置を開くときに戻す）
+function editUnits(){
+  const set=new Set(sels.filter(s=>{const r=rootOf(s);return r&&r!==s;}));
+  if(mirrorOn)[...set].forEach(s=>{const m=mirrorOf(s);if(m&&m!=='self')set.add(m);});
+  const a=[...set];
+  return a.filter(s=>!a.some(o=>o!==s&&isInside(s,o)));
+}
+// userData は数・文字・真偽だけ写す（マテリアルやほかのパーツへの参照は写さない）。パーツごとの印も外す
+const plainUD=u=>Object.fromEntries(Object.entries(u).filter(([k,v])=>v===null||(typeof v!=='object'&&typeof v!=='function')));
+const COPY_DROP=['mirrorLeaf','mirror','no','isCopy','copySrc','numbered','origDone'];
+function cloneTree(o){
+  const saved=[]; o.traverse(c=>{saved.push([c,c.userData]);c.userData=plainUD(c.userData);});
+  const c=o.clone(true);
+  saved.forEach(([x,u])=>x.userData=u);
+  c.traverse(x=>COPY_DROP.forEach(k=>delete x.userData[k]));
+  return c;
+}
+// 複製したパーツの印・色・元の変形（元のパーツのものを写す）
+function setupLeafCopy(s,x,r,no){
+  x.userData.isCopy=true; x.userData.copySrc=s.userData.copySrc||partKey(s); x.userData.no=no;
+  if(s.userData.origMat){x.material=s.userData.origMat;setPartColor(x,colorOf(s));}
+  const o=orig.get(s);
+  orig.set(x,{pos:o.pos.clone(),quat:o.quat.clone(),scale:o.scale.clone(),center:o.center.clone()});
+  copyRoots.set(x,r);
+}
+// root の中で名前ごとに次の #番号を出す（削除して取ってあるものの番号も使わない）
+function noCounter(r){
+  const used={};
+  const scan=c=>{if(c.isMesh&&!c.userData.outline)used[c.name]=Math.max(used[c.name]||1,c.userData.no||1);};
+  r.traverse(scan); trash.forEach(t=>{if(t.root===r)t.obj.traverse(scan);});
+  return name=>used[name]=(used[name]||1)+1;
+}
+function insertAfter(c,ref){
+  const p=ref.parent; p.add(c);
+  const ch=p.children; ch.pop(); ch.splice(ch.indexOf(ref)+1,0,c);
+}
+function forgetCopy(c){c.traverse(x=>{orig.delete(x);copyRoots.delete(x);});}
+function duplicateSelected(){
+  const units=editUnits(); if(!units.length)return;
+  units.forEach(ensureOrig);
+  const counters=new Map(), map=new Map(), made=[];
+  units.forEach(u=>{
+    const r=rootOf(u); numberParts(r);
+    if(!counters.has(r))counters.set(r,noCounter(r));
+    const next=counters.get(r);
+    const c=cloneTree(u);
+    const sn=[],cn=[]; u.traverse(x=>sn.push(x)); c.traverse(x=>cn.push(x));
+    sn.forEach((s,i)=>{
+      const x=cn[i];
+      if(s.userData.outline)return;
+      if(s.isMesh){setupLeafCopy(s,x,r,next(s.name));map.set(s,x);}
+      else if(s.isGroup){
+        x.userData.isPartGroup=true;
+        const pm=s.userData.mirror, pc=pm&&pm!=='self'&&map.get(pm);
+        x.name=pc?pc.name+"'":`グループ${++groupNo}`;
+        map.set(s,x);
+      }
+    });
+    insertAfter(c,u);
+    made.push(c);
+  });
+  // 鏡写しの相手：元どうしが相手なら、複製どうしも相手にする
+  map.forEach((x,s)=>{
+    if(s.isMesh){const m=leafMirror(s);x.userData.mirrorLeaf=m==='self'?'self':(map.get(m)||null);}
+    else{const m=s.userData.mirror;x.userData.mirror=m==='self'?'self':map.get(m);}
+  });
+  const prev=sels.slice();
+  history.push({undo:()=>{made.forEach(c=>{if(c.parent)c.parent.remove(c);forgetCopy(c);});updateHUD();selectParts(prev.filter(p=>rootOf(p)));}});
+  updateHUD(); selectParts(prev.map(p=>map.get(p)).filter(Boolean)); updateDragList();
+  showSaveStatus('複製しました（同じ位置にあります）');
+}
+function trashObj(o,r){
+  const parent=o.parent, index=parent.children.indexOf(o);
+  parent.remove(o);
+  const t={obj:o,parent,index,root:r}; trash.push(t);
+  return t;
+}
+function untrash(t,parent){
+  const i=trash.indexOf(t); if(i>=0)trash.splice(i,1);
+  parent=parent||t.parent;
+  parent.add(t.obj);
+  if(parent===t.parent){const ch=parent.children;ch.pop();ch.splice(Math.min(t.index,ch.length),0,t.obj);}
+}
+function deleteSelected(){
+  const units=editUnits(); if(!units.length)return;
+  units.forEach(ensureOrig);
+  const prev=sels.slice();
+  selectParts([]);
+  const ts=units.map(u=>trashObj(u,rootOf(u)));
+  history.push({undo:()=>{ts.slice().reverse().forEach(t=>untrash(t));updateHUD();selectParts(prev);updateDragList();}});
+  updateHUD(); updateDragList();
+  showSaveStatus('削除しました（⌘/Ctrl+Z で戻す）');
+}
+dupBtn.addEventListener('click',duplicateSelected);
+delBtn.addEventListener('click',deleteSelected);
+// root の組み立てを置いたときに戻す：削除したものを戻し、グループを解除し、複製を消し、パーツを元の親へ戻す（変形はそのまま）
+function resetStructure(r){
+  const ls=leavesOf(r); if(ls.length)ensureOrig(ls[0]);
+  trash.filter(t=>t.root===r).reverse().forEach(t=>untrash(t,rootOf(t.parent)===r?t.parent:r));
+  const gs=[]; r.traverse(c=>{if(c.userData.isPartGroup)gs.push(c);});
+  gs.reverse().forEach(ungroupRaw);
+  copyRoots.forEach((root,c)=>{if(root===r){if(c.parent)c.parent.remove(c);forgetCopy(c);}});
+  origLocal.forEach((o,m)=>{if(o.root===r&&!m.userData.isPartGroup&&m.parent!==o.parent)o.parent.add(m);});
+}
+
 // パーツを直接ドラッグ
 function partDown(x,y,e){
   const h=pickPart(x,y);
@@ -578,6 +699,7 @@ const euler=new THREE.Euler();
 function offsets(){
   const out=[];
   orig.forEach((o,m)=>{
+    if(!rootOf(m)){if(!m.userData.isCopy)out.push({name:m.name,no:m.userData.no||0,removed:true});return;}
     const t=rootTf(m);
     const d=t.pos.sub(o.pos);
     const dq=t.quat.multiply(o.quat.clone().invert());
@@ -586,15 +708,16 @@ function offsets(){
     const sc=t.scale.divide(o.scale).toArray().map(r2);
     const col=colorOf(m);
     const color=col&&col!==hex(m.userData.origMat.color)?col:null;
-    if(d.lengthSq()<1e-6&&rot.every(v=>v===0)&&sc.every(v=>v===1)&&!color)return;
-    out.push({name:m.name,no:m.userData.no||0,dx:r2(d.x),dy:r2(d.y),dz:r2(d.z),rx:rot[0],ry:rot[1],rz:rot[2],sx:sc[0],sy:sc[1],sz:sc[2],...(color?{color}:{})});
+    const copy=m.userData.isCopy?{copyOf:m.userData.copySrc}:{};
+    if(!copy.copyOf&&d.lengthSq()<1e-6&&rot.every(v=>v===0)&&sc.every(v=>v===1)&&!color)return;
+    out.push({name:m.name,no:m.userData.no||0,...copy,dx:r2(d.x),dy:r2(d.y),dz:r2(d.z),rx:rot[0],ry:rot[1],rz:rot[2],sx:sc[0],sy:sc[1],sz:sc[2],...(color?{color}:{})});
   });
   return out;
 }
 function updateDragList(){
   const o=offsets();
   dragList.innerHTML=o.length
-    ?o.map(e=>`${e.name}${e.no?' #'+e.no:''}: ${e.dx}, ${e.dy}, ${e.dz}`
+    ?o.map(e=>e.removed?`${e.name}${e.no?' #'+e.no:''}: 削除`:`${e.copyOf?'＋':''}${e.name}${e.no?' #'+e.no:''}${e.copyOf?'（'+e.copyOf+' の複製）':''}: ${e.dx}, ${e.dy}, ${e.dz}`
       +((e.rx||e.ry||e.rz)?` / ${e.rx}°, ${e.ry}°, ${e.rz}°`:'')
       +((e.sx!==1||e.sy!==1||e.sz!==1)?` / ×${e.sx}, ${e.sy}, ${e.sz}`:'')
       +(e.color?` / <span style="color:${e.color}">■</span>${e.color}`:'')).join('<br>')
@@ -615,10 +738,7 @@ document.getElementById('drag-undo').addEventListener('click',undo);
 // 全部戻す：グループをすべて解除してから、パーツを元の変形に戻す
 document.getElementById('drag-reset').addEventListener('click',()=>{
   selectParts([]);
-  allMeshes.forEach(r=>{
-    const gs=[]; r.traverse(c=>{if(c.userData.isPartGroup)gs.push(c);});
-    gs.reverse().forEach(ungroupRaw);
-  });
+  allMeshes.forEach(r=>{if(r.isGroup)resetStructure(r);});
   origLocal.forEach((o,m)=>{m.position.copy(o.pos);m.quaternion.copy(o.quat);m.scale.copy(o.scale);});
   orig.forEach((o,m)=>resetPartColor(m));
   history.length=0; updateHUD(); showBoxes(); updateDragList();
@@ -641,6 +761,8 @@ window.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&k==='g'){e.preventDefault();if(e.shiftKey)ungroupSelected();else groupSelected();return;}
   if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();undo();return;}
   if((e.metaKey||e.ctrlKey)&&k==='s'){e.preventDefault();saveLayout();return;}
+  if((e.metaKey||e.ctrlKey)&&k==='d'){e.preventDefault();duplicateSelected();return;}
+  if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteSelected();return;}
   if(e.metaKey||e.ctrlKey||e.altKey)return;
   if(k==='g')setMode('translate');
   if(k==='r')setMode('rotate');
@@ -704,11 +826,11 @@ const tfIn=(o,t)=>{o.position.fromArray(t.p);o.quaternion.fromArray(t.q);o.scale
 const partKey=m=>m.name+(m.userData.no?'#'+m.userData.no:'');
 const rootKey=(r,i)=>r.name||('#'+i);
 function layoutData(){
-  const data={v:1,groupNo,roots:{}};
+  const data={v:2,groupNo,roots:{}};
   allMeshes.forEach((r,ri)=>{
     if(!r.isGroup)return;
     numberParts(r);
-    const groups=[],parts=[],nodes=[];
+    const groups=[],parts=[],nodes=[],copies=[],removed=[],removedNodes=[];
     r.traverse(c=>{
       if(c===r||c.userData.outline)return;
       const parent=c.parent===r?null:c.parent.name;
@@ -717,11 +839,20 @@ function layoutData(){
         groups.push({name:c.name,parent,mirror:mir==='self'?'self':mir?mir.name:null,...tfOut(c)});
       }else if(c.isMesh){
         parts.push({key:partKey(c),parent,color:colorOf(c),...tfOut(c)});
+        if(c.userData.isCopy){const ml=c.userData.mirrorLeaf;copies.push({key:partKey(c),name:c.name,no:c.userData.no,src:c.userData.copySrc,mirror:ml==='self'?'self':ml?partKey(ml):null});}
       }else if(c.isGroup){
         nodes.push({name:c.name,...tfOut(c)});
       }
     });
-    data.roots[rootKey(r,ri)]={groups,parts,nodes};
+    trash.forEach(t=>{
+      if(t.root!==r)return;
+      t.obj.traverse(c=>{
+        if(c.userData.outline||c.userData.isCopy)return;
+        if(c.isMesh)removed.push(partKey(c));
+        else if(c.isGroup&&!c.userData.isPartGroup&&c.name)removedNodes.push(c.name);
+      });
+    });
+    data.roots[rootKey(r,ri)]={groups,parts,nodes,copies,removed,removedNodes};
   });
   return data;
 }
@@ -754,11 +885,21 @@ document.getElementById('export-btn').addEventListener('click',exportLayout);
 document.getElementById('import-btn').addEventListener('click',()=>importInput.click());
 function applyLayout(data){
   allMeshes.forEach((r,ri)=>{
-    const d=data.roots[rootKey(r,ri)]; if(!d||!r.isGroup||!leavesOf(r).length)return;
-    numberParts(r); ensureOrig(leavesOf(r)[0]);
-    // いまのグループを解除して、パーツを元に戻してから組み立て直す
-    const gs=[]; r.traverse(c=>{if(c.userData.isPartGroup)gs.push(c);});
-    gs.reverse().forEach(ungroupRaw);
+    const d=data.roots[rootKey(r,ri)]; if(!d||!r.isGroup)return;
+    // いまの組み立て（グループ・複製・削除）を置いたときに戻してから組み立て直す
+    resetStructure(r);
+    if(!leavesOf(r).length)return;
+    numberParts(r);
+    // 複製を作り直す（元のパーツから）
+    const origLeaves={}; leavesOf(r).forEach(l=>origLeaves[partKey(l)]=l);
+    const copied={};
+    (d.copies||[]).forEach(cd=>{
+      const s=origLeaves[cd.src]; if(!s)return;
+      const x=cloneTree(s); x.name=cd.name;
+      setupLeafCopy(s,x,r,cd.no); s.parent.add(x);
+      copied[cd.key]=x;
+    });
+    (d.copies||[]).forEach(cd=>{const x=copied[cd.key];if(x)x.userData.mirrorLeaf=cd.mirror==='self'?'self':(copied[cd.mirror]||null);});
     const byName={};
     d.groups.forEach(gd=>{
       const g=new THREE.Group(); g.name=gd.name; g.userData.isPartGroup=true;
@@ -777,6 +918,9 @@ function applyLayout(data){
       tfIn(m,pd);
       if(pd.color)setPartColor(m,pd.color);else resetPartColor(m);
     });
+    // 削除したものを外す
+    (d.removed||[]).forEach(k=>{const m=origLeaves[k];if(m&&m.parent)trashObj(m,r);});
+    (d.removedNodes||[]).forEach(n=>{const g=nodes[n];if(g&&g.parent)trashObj(g,r);});
   });
   groupNo=Math.max(groupNo,data.groupNo||0);
   history.length=0;
