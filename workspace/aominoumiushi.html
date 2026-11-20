@@ -103,7 +103,8 @@
 <script type="module">
 import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { MICRORAPTOR_LAYOUT, microraptorPartGeo } from '../parts/microraptor.js';
+import { microraptorPartGeo } from '../parts/microraptor.js';
+import { AOMINOUMIUSHI_LAYOUT } from '../parts/aominoumiushi.js';
 (function() {
 
 const canvas = document.getElementById('eb-canvas');
@@ -830,7 +831,8 @@ colorInput.addEventListener('change',()=>{
 // 保存するもの：作ったグループ（親・位置・向き・倍率・鏡写しの相手）と、パーツの親・位置・向き・倍率・変えた色
 // もともとあるグループ（自分で作ったのではないもの）は位置・向き・倍率だけ保存する
 // 置いたオブジェクトは名前（なければ置いた順）、パーツは「名前 #番号」で見分ける。開いたときに保存があれば自動でその配置にする
-const SAVE_KEY='workspace-layout:'+location.pathname;
+// 部品にする前（ミクロラプトルから組み替えていたとき）の保存とは置き方が違うので、別の名前で保存する
+const SAVE_KEY='workspace-layout:'+location.pathname+':v2';
 const saveStatus=document.getElementById('save-status');
 const tfOut=o=>({p:o.position.toArray(),q:o.quaternion.toArray(),s:o.scale.toArray()});
 const tfIn=(o,t)=>{o.position.fromArray(t.p);o.quaternion.fromArray(t.q);o.scale.fromArray(t.s);};
@@ -970,15 +972,15 @@ updateGroupBtns();
 //   左右対称は置いたオブジェクトの座標の x=0 が鏡の面
 //   色を変えると自発光は変えない。material.userData.emissiveK（色に対する割合）を入れておくと色に合わせて変える
 
-// アオミノウミウシのたたき台：ミクロラプトルを真ん中に置く。形と配置は parts/microraptor.js（microraptorPartGeo と MICRORAPTOR_LAYOUT）から
-//   +z が正面（くちばし）・x=0 で左右対称。root を y=-5 に置いて地面に立たせる。パーツごとに分けて置くので、選んで動かす・複製・削除ができる
+// アオミノウミウシ（ミクロラプトルのパーツを組み替えたもの）。配置は parts/aominoumiushi.js の AOMINOUMIUSHI_LAYOUT、形は parts/microraptor.js の microraptorPartGeo から
+//   +z が正面（目のある側）・x=0 で左右対称。root を y=-5 に置く。パーツごとに分けて置くので、選んで動かす・複製・削除ができる
 (function(){
   const GLOW=0.45;
   const mat=c=>{const m=new THREE.MeshLambertMaterial({color:c,side:THREE.DoubleSide});m.emissive.set(c).multiplyScalar(GLOW);m.userData.emissiveK=GLOW;return m;};
   const flat=g=>{const f=g.index?g.toNonIndexed():g;f.computeVertexNormals();return f;};   // 角ばった面のまま
   const root=new THREE.Group(); root.name='アオミノウミウシ'; root.position.y=-5;
-  for(const [key,{color,m}] of Object.entries(MICRORAPTOR_LAYOUT)){
-    const mesh=new THREE.Mesh(flat(microraptorPartGeo(key)),mat(color)); mesh.name=key.split('#')[0]; mesh.castShadow=true;
+  for(const [key,{shape,color,m}] of Object.entries(AOMINOUMIUSHI_LAYOUT)){
+    const mesh=new THREE.Mesh(flat(microraptorPartGeo(shape)),mat(color)); mesh.name=key.split('#')[0]; mesh.castShadow=true;
     new THREE.Matrix4().fromArray(m).decompose(mesh.position,mesh.quaternion,mesh.scale);
     root.add(mesh);
   }
