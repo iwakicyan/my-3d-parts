@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // ============================================================
 //  ローポリのカニ（workspace/kani.html で組んだもの）
 //    体（屋根のように上を持ち上げた直方体）・目 2 つ（柄と玉）・はさみ 2 つ（はさみと上の指・下の指の三角錐）・あし先 4 本（三角錐）
-//    作業台で確定した配置（KANI_LAYOUT。パーツごとの形・4x4 行列・色・動かした頂点）を焼き込む。輪郭線なし。自発光は色の KANI_GLOW（1 割）
+//    作業台で確定した配置（KANI_LAYOUT。パーツごとの形・4x4 行列・色・動かした頂点）を焼き込む。輪郭線なし。自発光は色の KANI_GLOW（3 割）
 //    原点=いちばん下の真ん中・+z が正面（はさみの向き）・height で全体の高さ[m]（モデル単位の高さ KANI_HEIGHT）
 //  動き（createKaniMotion）：作業台の ▶ 歩く・✌ チョキチョキと同じ
 //    縦歩き：横ではなく前（+z）へ歩く。あし先の組（KANI_RIG.step）を交互に、付け根を通る縦の軸まわりに前後へ振り、前へ出すときだけ持ち上げる。体は 1 歩ごとに上下
@@ -125,7 +125,7 @@ const OFFSET = new THREE.Vector3(-(_box.min.x + _box.max.x) / 2, -_box.min.y, -(
 const placeMatrix = height => new THREE.Matrix4().makeScale(height / KANI_HEIGHT, height / KANI_HEIGHT, height / KANI_HEIGHT).multiply(new THREE.Matrix4().makeTranslation(OFFSET.x, OFFSET.y, OFFSET.z));
 
 // 自発光（色に対する割合）。頂点の色に合わせて光らせる（灰色を足すと色がぼけるので、シェーダーで頂点の色 × GLOW を自発光に足す）
-export const KANI_GLOW = 0.1;
+export const KANI_GLOW = 0.3;
 let _mat = null;
 const sharedMat = () => {
   if (_mat) return _mat;
