@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ============================================================
 //  ローポリのカニ（workspace/kani.html で組んだもの）
@@ -9,6 +10,9 @@ import * as THREE from 'three';
 //    縦歩き：横ではなく前（+z）へ歩く。あし先の組（KANI_RIG.step）を交互に、付け根を通る縦の軸まわりに前後へ振り、前へ出すときだけ持ち上げる。体は 1 歩ごとに上下
 //    チョキチョキ：はさみ（KANI_RIG.arms）を前に持ち上げて少し外へ開き、上・後ろへずらして、指を開いて閉じる
 //    指は歩いている間もチョキチョキする
+//  動く単位（体と目／あし先 1 本ずつ／はさみ 1 つずつ／指 1 本ずつ）ごとに、形を作業台の配置で焼き込んで頂点の色の 1 つのジオメトリにする（マテリアル 1 つ）
+//    createKani：1 匹（単位ごとのメッシュ。描画 11 回）/ createKaniSwarm：count 匹をまとめて描く（InstancedMesh 11 個。何匹でも描画 11 回）
+//    姿勢は createKaniPoser が単位ごとの行列（作業台の原点の座標）を出す。1 匹ずつ 1 つ持たせる
 // ============================================================
 
 // 形：box / cyl / spike（先細りの三角錐。底は半径 r の三角形、長さ h。dir の向きにとがる）
@@ -74,116 +78,178 @@ function makeGeo(key) {
   if (c === 'z') g.rotateX(Math.PI / 2); else if (c === '-y') g.rotateX(Math.PI);
   return g;
 }
-
-// 作業台の原点から見た全体の箱（原点を下の真ん中へ寄せる・高さを合わせる用）
-const _box = (() => {
-  const box = new THREE.Box3();
-  for (const p of KANI_LAYOUT) { const g = partGeo(p); g.applyMatrix4(new THREE.Matrix4().fromArray(p.m)); g.computeBoundingBox(); box.union(g.boundingBox); g.dispose(); }
-  return box;
-})();
+// パーツの形（動かした頂点まで。配置の行列はまだ掛けない）
 function partGeo(p) {
   const g = makeGeo(p.key);
   if (p.verts) { const pa = g.attributes.position; for (const [i, x, y, z] of p.verts) pa.setXYZ(i, x, y, z); g.computeVertexNormals(); }
   return g;
 }
+const LAYOUT = Object.fromEntries(KANI_LAYOUT.map(p => [p.key, { ...p, M: new THREE.Matrix4().fromArray(p.m) }]));
+// 配置の行列を掛ける前の形の箱を、配置で動かした箱（付け根や軸を決める用。作業台と同じ求め方）
+const placedBox = key => { const g = partGeo(LAYOUT[key]); g.computeBoundingBox(); const b = g.boundingBox.clone(); g.dispose(); return b; };
+
+// 動く単位：id → パーツ
+const UNITS = (() => {
+  const u = {};
+  const legKeys = KANI_RIG.step.flat(), armKeys = KANI_RIG.arms.flat();
+  KANI_LAYOUT.forEach(p => {
+    if (legKeys.includes(p.key)) u['leg:' + p.key] = [p.key];
+    else if (/の指/.test(p.key)) u['finger:' + p.key] = [p.key];
+    else if (armKeys.includes(p.key)) u['arm' + KANI_RIG.arms.findIndex(a => a.includes(p.key))] = [p.key];
+    else (u.body ??= []).push(p.key);
+  });
+  return u;
+})();
+export const KANI_UNITS = Object.keys(UNITS);
+// 単位ごとのジオメトリ（配置を焼き込んで、色は頂点の色に）
+const UNIT_GEOS = Object.fromEntries(Object.entries(UNITS).map(([id, keys]) => {
+  const c = new THREE.Color();
+  const gs = keys.map(k => {
+    const p = LAYOUT[k], g = partGeo(p).applyMatrix4(p.M);
+    c.set(p.color);
+    const n = g.attributes.position.count, col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    return g;
+  });
+  const g = gs.length > 1 ? mergeGeometries(gs) : gs[0];
+  g.computeBoundingBox(); g.computeBoundingSphere();
+  return [id, g];
+}));
+// 作業台の原点から見た全体の箱（原点を下の真ん中へ寄せる・高さを合わせる用）
+const _box = new THREE.Box3();
+Object.values(UNIT_GEOS).forEach(g => _box.union(g.boundingBox));
 export const KANI_HEIGHT = _box.max.y - _box.min.y;
+const OFFSET = new THREE.Vector3(-(_box.min.x + _box.max.x) / 2, -_box.min.y, -(_box.min.z + _box.max.z) / 2);
+// 作業台の原点の座標 → カニの原点（いちばん下の真ん中）の座標で height[m] の大きさ
+const placeMatrix = height => new THREE.Matrix4().makeScale(height / KANI_HEIGHT, height / KANI_HEIGHT, height / KANI_HEIGHT).multiply(new THREE.Matrix4().makeTranslation(OFFSET.x, OFFSET.y, OFFSET.z));
 
-// root（原点=いちばん下の真ん中・height[m] の大きさ）→ userData.body（作業台の原点の座標。歩くと上下する）→ パーツ（はさみ 2 つは userData.arms のグループの中）
-export function createKani({ height = KANI_HEIGHT } = {}) {
-  const root = new THREE.Group(); root.name = 'カニ';
-  root.scale.setScalar(height / KANI_HEIGHT);
-  const body = new THREE.Group(); body.name = 'カニの体';
-  body.position.set(-(_box.min.x + _box.max.x) / 2, -_box.min.y, -(_box.min.z + _box.max.z) / 2);
-  root.add(body);
-  const mats = {};
-  const matOf = color => mats[color] ??= new THREE.MeshPhongMaterial({ color, flatShading: true, shininess: 30 });
-  const parts = {};
-  const arms = KANI_RIG.arms.map((keys, i) => { const g = new THREE.Group(); g.name = 'はさみの組' + (i ? '右' : '左'); body.add(g); return { g, keys }; });
-  for (const p of KANI_LAYOUT) {
-    const mesh = new THREE.Mesh(partGeo(p), matOf(p.color));
-    mesh.name = p.key; mesh.castShadow = true;
-    new THREE.Matrix4().fromArray(p.m).decompose(mesh.position, mesh.quaternion, mesh.scale);
-    const arm = arms.find(a => a.keys.includes(p.key));
-    (arm ? arm.g : body).add(mesh);
-    parts[p.key] = mesh;
-  }
-  root.userData.body = body;
-  root.userData.parts = parts;
-  root.userData.arms = arms.map(a => a.g);
-  return root;
-}
+let _mat = null;
+const sharedMat = () => _mat ??= new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 30 });
 
-// 動き：update(dt, { walk, snip }) を毎フレーム（walk・snip は入れるかどうか。入り・切りは EASE 秒でなめらかに変わる）
-//   返り値は前（+z）へ進む速さ[m/s]（root の大きさを掛けたもの。歩いた分だけ root を前へ動かす用）
-export function createKaniMotion(root, M = KANI_MOTION) {
-  const { body, parts, arms } = root.userData;
-  const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
-  const keep = m => ({ m, L0: m.matrix.clone() });
-  root.updateMatrixWorld(true);   // パーツの matrix を position・quaternion・scale に合わせる
-  const bbOf = m => { const g = m.geometry; g.computeBoundingBox(); return g.boundingBox; };
+// 動きの軸（作業台と同じ求め方）
+const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
+const RIG = (() => {
   // あし：付け根はあし先の上の端
   const legs = [];
   KANI_RIG.step.forEach((keys, gi) => keys.forEach(k => {
-    const m = parts[k]; if (!m) return;
-    const bb = bbOf(m), c = bb.getCenter(new THREE.Vector3());
-    const hip = new THREE.Vector3(c.x, bb.max.y, c.z).applyMatrix4(m.matrix);
-    legs.push({ ...keep(m), hip, side: hip.x >= 0 ? 1 : -1, phase: gi * Math.PI });
+    const bb = placedBox(k), c = bb.getCenter(new THREE.Vector3());
+    const hip = new THREE.Vector3(c.x, bb.max.y, c.z).applyMatrix4(LAYOUT[k].M);
+    legs.push({ id: 'leg:' + k, hip, side: hip.x >= 0 ? 1 : -1, phase: gi * Math.PI });
   }));
-  // はさみ：体に近い端の少し前が軸（作業台の原点の座標で x が 0 に近いほう・z は後ろから ARM_PIVOT_FWD の割合・y はまんなか）
-  const armRig = arms.map(g => {
+  // はさみ：体に近い端の少し前が軸（x が 0 に近いほう・z は後ろから ARM_PIVOT_FWD の割合・y はまんなか）
+  const arms = KANI_RIG.arms.map((keys, i) => {
     const box = new THREE.Box3();
-    g.children.forEach(m => { const b = bbOf(m).clone().applyMatrix4(m.matrix); box.union(b); });
+    keys.forEach(k => box.union(placedBox(k).applyMatrix4(LAYOUT[k].M)));
     const c = box.getCenter(new THREE.Vector3());
     const x = Math.abs(box.min.x) < Math.abs(box.max.x) ? box.min.x : box.max.x;
-    return { g, side: c.x >= 0 ? 1 : -1, pivot: new THREE.Vector3(x, c.y, box.min.z + (box.max.z - box.min.z) * M.ARM_PIVOT_FWD) };
+    return { id: 'arm' + i, side: c.x >= 0 ? 1 : -1, box, cx: c.y, x };
   });
   // 指：付け根（とがっていない後ろの端）を通る左右の軸まわり。上の指は上へ、下の指は下へ開く
-  const fingers = [];
-  for (const [k, m] of Object.entries(parts)) {
-    const f = k.match(/^(上|下)の指/); if (!f) continue;
-    const bb = bbOf(m), c = bb.getCenter(new THREE.Vector3());
-    fingers.push({ ...keep(m), dir: f[1] === '上' ? -1 : 1, pivot: new THREE.Vector3(c.x, c.y, bb.min.z).applyMatrix4(m.matrix) });
-  }
-  const body0 = body.position.clone();
+  const fingers = KANI_LAYOUT.filter(p => /の指/.test(p.key)).map(p => {
+    const bb = placedBox(p.key), c = bb.getCenter(new THREE.Vector3());
+    return { id: 'finger:' + p.key, arm: KANI_RIG.arms.findIndex(a => a.includes(p.key)), dir: /^上/.test(p.key) ? -1 : 1,
+      pivot: new THREE.Vector3(c.x, c.y, bb.min.z).applyMatrix4(LAYOUT[p.key].M) };
+  });
+  return { legs, arms, fingers };
+})();
+
+// 姿勢：update(dt, { walk, snip }) で動きを進め（入り・切りは EASE 秒でなめらかに）、mats に単位ごとの行列（作業台の原点の座標）を入れる
+//   返り値は前（+z）へ進む速さ（モデル単位/秒）
+export function createKaniPoser(M = KANI_MOTION) {
+  const mats = Object.fromEntries(KANI_UNITS.map(id => [id, new THREE.Matrix4()]));
+  const armPivot = RIG.arms.map(a => new THREE.Vector3(a.x, a.cx, a.box.min.z + (a.box.max.z - a.box.min.z) * M.ARM_PIVOT_FWD));
   const shift = new THREE.Vector3(...M.ARM_SHIFT);
-  const _R = new THREE.Matrix4(), _R2 = new THREE.Matrix4(), _T = new THREE.Matrix4(), _Ti = new THREE.Matrix4(), _M = new THREE.Matrix4();
-  const rotAbout = (obj, L0, p, rots, add) => {
-    _T.makeTranslation(p.x, p.y, p.z); _Ti.makeTranslation(-p.x, -p.y, -p.z);
-    _M.copy(_T); rots.forEach(r => _M.multiply(r)); _M.multiply(_Ti);
-    if (L0) _M.multiply(L0);
-    _M.decompose(obj.position, obj.quaternion, obj.scale);
-    if (add) obj.position.add(add);
+  const _R = new THREE.Matrix4(), _R2 = new THREE.Matrix4(), _T = new THREE.Matrix4(), _B = new THREE.Matrix4();
+  const armMats = RIG.arms.map(() => new THREE.Matrix4());
+  // out = T(p) * rots * T(-p)
+  const about = (out, p, ...rots) => {
+    out.makeTranslation(p.x, p.y, p.z); rots.forEach(r => out.multiply(r));
+    return out.multiply(_T.makeTranslation(-p.x, -p.y, -p.z));
   };
   let w = 0, s = 0, walkPh = 0, snipPh = 0;
-  const _sh = new THREE.Vector3();
   const smooth = t => t * t * (3 - 2 * t);
   function update(dt, { walk = false, snip = false } = {}) {
     const step = dt / M.EASE;
     w = walk ? Math.min(1, w + step) : Math.max(0, w - step);
     s = snip ? Math.min(1, s + step) : Math.max(0, s - step);
-    walkPh += dt * 2 * Math.PI * M.RATE * (w > 0 ? 1 : 0);
+    if (w > 0) walkPh += dt * 2 * Math.PI * M.RATE;
     const kw = smooth(w), ks = smooth(s);
-    // 縦歩き
-    legs.forEach(p => {
+    _B.makeTranslation(0, M.BOB * kw * Math.abs(Math.sin(walkPh)), 0);   // 体の上下（全部にかける）
+    mats.body.copy(_B);
+    // 縦歩き：前へ出すとき（cos > 0）だけ持ち上げる
+    RIG.legs.forEach(p => {
       const th = walkPh + p.phase;
       _R.makeRotationAxis(Y, -p.side * M.SWING * kw * Math.sin(th));
       _R2.makeRotationAxis(Z, p.side * M.LIFT * kw * Math.max(0, Math.cos(th)));
-      rotAbout(p.m, p.L0, p.hip, [_R, _R2]);
+      about(mats[p.id], p.hip, _R, _R2).premultiply(_B);
     });
-    body.position.set(body0.x, body0.y + M.BOB * kw * Math.abs(Math.sin(walkPh)), body0.z);
-    // はさみを持ち上げる
-    armRig.forEach(a => {
+    // はさみを持ち上げる（外へ開いてから前を持ち上げ、上・後ろへずらす）
+    RIG.arms.forEach((a, i) => {
       _R.makeRotationAxis(Z, a.side * M.ARM_OUT * ks);
       _R2.makeRotationAxis(X, -M.ARM_RAISE * ks);
-      rotAbout(a.g, null, a.pivot, [_R, _R2], _sh.copy(shift).multiplyScalar(ks));
+      about(armMats[i], armPivot[i], _R, _R2);
+      armMats[i].elements[12] += shift.x * ks; armMats[i].elements[13] += shift.y * ks; armMats[i].elements[14] += shift.z * ks;
+      armMats[i].premultiply(_B);
+      mats[a.id].copy(armMats[i]);
     });
-    // 指のチョキチョキ（はさみを上げているほど速く・大きく）
+    // 指のチョキチョキ（はさみを上げているほど速く。歩いているときも）
     const amp = Math.max(kw, ks);
-    snipPh += dt * 2 * Math.PI * (M.SNIP_RATE + (M.ARM_SNIP_RATE - M.SNIP_RATE) * ks) * (amp > 0 ? 1 : 0);
+    if (amp > 0) snipPh += dt * 2 * Math.PI * (M.SNIP_RATE + (M.ARM_SNIP_RATE - M.SNIP_RATE) * ks);
     const open = M.SNIP * amp * (0.5 - 0.5 * Math.cos(snipPh));
-    fingers.forEach(f => { _R.makeRotationAxis(X, f.dir * open); rotAbout(f.m, f.L0, f.pivot, [_R]); });
-    // 地面についているあしが後ろへ押す速さ
-    return M.REACH * M.SWING * 2 * Math.PI * M.RATE * (2 / Math.PI) * kw * root.scale.x;
+    RIG.fingers.forEach(f => {
+      _R.makeRotationAxis(X, f.dir * open);
+      about(mats[f.id], f.pivot, _R).premultiply(armMats[f.arm]);
+    });
+    return M.REACH * M.SWING * 2 * Math.PI * M.RATE * (2 / Math.PI) * kw;
   }
+  update(0);
+  return { update, mats };
+}
+
+// 1 匹：root（原点=いちばん下の真ん中・height[m]）の中に単位ごとのメッシュ
+export function createKani({ height = KANI_HEIGHT } = {}) {
+  const root = new THREE.Group(); root.name = 'カニ';
+  const place = placeMatrix(height);
+  const meshes = {};
+  for (const id of KANI_UNITS) {
+    const m = new THREE.Mesh(UNIT_GEOS[id], sharedMat());
+    m.name = id; m.castShadow = true; m.matrixAutoUpdate = false; m.matrix.copy(place);
+    root.add(m); meshes[id] = m;
+  }
+  root.userData.meshes = meshes;
+  root.userData.place = place;
+  root.userData.scale = height / KANI_HEIGHT;
+  return root;
+}
+// 1 匹の動き：update(dt, { walk, snip })。返り値は前へ進む速さ[m/s]
+export function createKaniMotion(root, M = KANI_MOTION) {
+  const poser = createKaniPoser(M), { meshes, place, scale } = root.userData;
+  function update(dt, opt) {
+    const v = poser.update(dt, opt);
+    for (const id of KANI_UNITS) { meshes[id].matrix.multiplyMatrices(place, poser.mats[id]); meshes[id].matrixWorldNeedsUpdate = true; }
+    return v * scale;
+  }
+  update(0);
   return { update };
+}
+
+// count 匹をまとめて描く：set(i, matrix, poser) で 1 匹ずつ置いて（matrix はカニの原点＝いちばん下の真ん中・+z が前・大きさ 1）、commit()
+//   speedOf(v) で poser.update の返り値（モデル単位/秒）を m/s にする
+export function createKaniSwarm(count, { height = KANI_HEIGHT } = {}) {
+  const group = new THREE.Group(); group.name = 'カニの群れ';
+  const place = placeMatrix(height), scale = height / KANI_HEIGHT;
+  const meshes = Object.fromEntries(KANI_UNITS.map(id => {
+    const m = new THREE.InstancedMesh(UNIT_GEOS[id], sharedMat(), count);
+    m.name = id; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
+    group.add(m);
+    return [id, m];
+  }));
+  const base = new THREE.Matrix4(), out = new THREE.Matrix4();
+  const set = (i, matrix, poser) => {
+    base.multiplyMatrices(matrix, place);
+    for (const id of KANI_UNITS) meshes[id].setMatrixAt(i, out.multiplyMatrices(base, poser.mats[id]));
+  };
+  const commit = () => { for (const id of KANI_UNITS) meshes[id].instanceMatrix.needsUpdate = true; };
+  return { group, set, commit, count, speedOf: v => v * scale };
 }
