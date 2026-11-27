@@ -41,6 +41,7 @@
 #eb-label .part:hover { background: #eef1f4; }
 #eb-label .part.sel { background: #ff9a5a; color: #fff; }
 #eb-label .part.mir { background: #ffe2cc; }
+#box-sel { position: absolute; border: 1px dashed #ff7a2f; background: rgba(255,122,47,0.08); pointer-events: none; z-index: 3; }
 #drag-list { font-family: ui-monospace, monospace; font-size: 11px; max-height: 140px; overflow-y: auto; }
 </style>
 <div id="eb-wrap">
@@ -55,7 +56,7 @@
       <button id="part-del" title="Delete / Backspace">🗑 削除</button>
     </div>
     <div class="hud-list" id="hud-list"><span style="color:#ccc">（なし）</span></div>
-    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>一覧の上の ⧉ 複製（⌘/Ctrl+D）で選んだパーツ・グループを同じ位置に複製、🗑 削除（Delete）で消す（どちらも ⌘/Ctrl+Z で戻せる・左右対称 ON なら相手も一緒）<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>⬇ / ⬆ で配置を JSON ファイルに書き出し・読み込み（別のブラウザへ持っていく用）<br>空いている所をドラッグで回転 / スクロールでズーム<br>右・中ボタンのドラッグ、または 🤚 視点移動（H）中の左ドラッグで視点を平行移動 / ⌖（F）で視点を最初に戻す</div>
+    <div class="hud-hint" id="hud-hint" hidden>パーツか一覧をクリックで選択（Esc で解除）<br>Shift / ⌘ / Ctrl＋クリックで選択に足す・外す<br>一覧の上の ⧉ 複製（⌘/Ctrl+D）で選んだパーツ・グループを同じ位置に複製、🗑 削除（Delete）で消す（どちらも ⌘/Ctrl+Z で戻せる・左右対称 ON なら相手も一緒）<br>2つ以上選んで「グループ化」（⌘/Ctrl+G）・解除は ⌘/Ctrl+Shift+G<br>画面のクリックはグループごと、一覧からはグループの中の1つも選べる<br>矢印・輪・箱をドラッグでその軸だけ / パーツを直接ドラッグで自由に（途中から Shift で移動は上下だけ・回転は前後の軸）<br>右のボタン（G / R / S）でモードを切り替え<br>◆ 頂点編集（Tab / V）：選んだパーツの頂点が点で出る。点をクリックで選ぶ（Shift で足す・外す、Shift＋空いている所をドラッグで囲んで足す、A で全部・解除）。点を直接ドラッグか矢印で移動、R / S で選んだ頂点をまとめて回転・拡大縮小。左右対称 ON なら反対側の頂点も鏡写しに動く（真ん中の頂点は左右に動かない）。Tab か Esc でパーツの選択に戻る<br>🎨 で選んだパーツの色を変える<br>💾 保存（⌘/Ctrl+S）でブラウザに保存し、次に開いたとき自動で戻す<br>⬇ / ⬆ で配置を JSON ファイルに書き出し・読み込み（別のブラウザへ持っていく用）<br>空いている所をドラッグで回転 / スクロールでズーム<br>右・中ボタンのドラッグ、または 🤚 視点移動（H）中の左ドラッグで視点を平行移動 / ⌖（F）で視点を最初に戻す</div>
   </div>
   <button id="hud-open" title="一覧を出す">▶ 一覧</button>
   <button id="wf-btn">🔲 ワイヤーフレーム ON</button>
@@ -63,6 +64,7 @@
     <button id="mode-move" class="on">✋ 移動 (G)</button>
     <button id="mode-rotate">⟳ 回転 (R)</button>
     <button id="mode-scale">⤢ 拡大縮小 (S)</button>
+    <button id="mode-vertex" title="Tab / V（選んだパーツの頂点を動かす）">◆ 頂点編集 (Tab)</button>
     <hr>
     <button id="drag-mirror" class="on">↔ 左右対称 ON</button>
     <hr>
@@ -93,6 +95,7 @@
       <button id="drag-copy">📋 コピー</button>
     </div>
   </div>
+  <div id="box-sel" hidden></div>
   <canvas id="eb-canvas"></canvas>
 </div>
 <script type="importmap">
@@ -225,7 +228,7 @@ let downX=0,downY=0;
 canvas.addEventListener("mousedown",e=>{
   if(e.button!==0||panMode){if(e.button===0&&(tc.dragging||tc.axis))return;e.preventDefault();panning=true;prevX=e.clientX;prevY=e.clientY;if(panMode)canvas.style.cursor='grabbing';return;}
   if(tc.dragging||tc.axis)return;if(partDown(e.clientX,e.clientY,e))return;dragging=true;prevX=downX=e.clientX;prevY=downY=e.clientY;});
-window.addEventListener("mouseup",e=>{if(panning){panning=false;if(panMode)canvas.style.cursor='grab';return;}if(dragging&&Math.hypot(e.clientX-downX,e.clientY-downY)<4&&e.target===canvas)selectPart(null);dragging=false;partUp();});
+window.addEventListener("mouseup",e=>{if(panning){panning=false;if(panMode)canvas.style.cursor='grab';return;}if(dragging&&Math.hypot(e.clientX-downX,e.clientY-downY)<4&&e.target===canvas){if(vtxMode)vtxSelect([]);else selectPart(null);}dragging=false;partUp();});
 window.addEventListener("mousemove",e=>{if(panning){panBy(e.clientX-prevX,e.clientY-prevY);prevX=e.clientX;prevY=e.clientY;return;}if(partMove(e.clientX,e.clientY,e))return;if(!dragging){if(!panMode)partHover(e.clientX,e.clientY);return;}theta-=(e.clientX-prevX)*0.007;phi=Math.max(0.05,Math.min(1.2,phi+(e.clientY-prevY)*0.007));prevX=e.clientX;prevY=e.clientY;updateCam();});
 canvas.addEventListener("touchstart",e=>{if(tc.dragging||tc.axis)return;if(partDown(e.touches[0].clientX,e.touches[0].clientY,{}))return;dragging=true;prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;},{passive:true});
 window.addEventListener("touchend",()=>{dragging=false;partUp();});
@@ -304,9 +307,9 @@ function boxAt(i,color){
 const tc=new TransformControls(camera,canvas);
 tc.setSize(0.8);
 scene.add(tc);
-tc.addEventListener('mouseDown',()=>{if(sel)beginStep(sel);});
-tc.addEventListener('objectChange',()=>{afterChange(sel);});
-tc.addEventListener('mouseUp',()=>{endStep();});
+tc.addEventListener('mouseDown',()=>{if(vtxMode)vtxBegin();else if(sel)beginStep(sel);});
+tc.addEventListener('objectChange',()=>{if(vtxMode)vtxApply();else afterChange(sel);});
+tc.addEventListener('mouseUp',()=>{if(vtxMode)vtxEnd();else endStep();});
 
 function castAt(x,y){
   const r=canvas.getBoundingClientRect();
@@ -343,9 +346,10 @@ function ensureOrig(o){
   r.traverse(c=>{if(c!==r&&!c.userData.outline&&!c.isTransformControls)origLocal.set(c,{pos:c.position.clone(),quat:c.quaternion.clone(),scale:c.scale.clone(),parent:c.parent,root:r});});
   leavesOf(r).forEach(c=>{
     const t=rootTf(c);
-    c.geometry.computeBoundingBox();
+    const g0=c.userData.origGeo||c.geometry;   // 頂点を動かしてあっても元の形の中心
+    g0.computeBoundingBox();
     const m=new THREE.Matrix4().compose(t.pos,t.quat,t.scale);
-    t.center=c.geometry.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(m);
+    t.center=g0.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(m);
     orig.set(c,t);
   });
   r.userData.origDone=true;
@@ -429,9 +433,10 @@ function afterChange(o){
 function selectParts(list){
   sels=list.filter(Boolean);
   sel=sels.length===1?sels[0]:null;
-  if(sel){ensureOrig(sel);tc.attach(sel);tc.setMode(mode);tc.setSpace(mode==='scale'?'local':'world');}
-  else tc.detach();
+  if(sel&&!vtxMode){ensureOrig(sel);tc.attach(sel);tc.setMode(mode);tc.setSpace(mode==='scale'?'local':'world');}
+  else if(!vtxMode)tc.detach();
   showBoxes(); markHUD(); updateGroupBtns(); updateColorInput();
+  if(vtxMode){if(!sels.length)setVtxMode(false);else vtxRetarget();}
 }
 const selectPart=m=>selectParts(m?[m]:[]);
 function toggleSelect(o){
@@ -562,6 +567,10 @@ function cloneTree(o){
 function setupLeafCopy(s,x,r,no){
   x.userData.isCopy=true; x.userData.copySrc=s.userData.copySrc||partKey(s); x.userData.no=no;
   if(s.userData.origMat){x.material=s.userData.origMat;setPartColor(x,colorOf(s));}
+  if(s.userData.origGeo){   // 頂点を動かしたパーツは、動かした形を自分用に写す
+    const g=s.geometry; x.userData.origGeo=s.userData.origGeo; x.geometry=g.clone();
+    x.children.forEach(c=>{if(c.userData.outline&&c.geometry===g)c.geometry=x.geometry;});
+  }
   const o=orig.get(s);
   orig.set(x,{pos:o.pos.clone(),quat:o.quat.clone(),scale:o.scale.clone(),center:o.center.clone()});
   copyRoots.set(x,r);
@@ -648,6 +657,7 @@ function resetStructure(r){
 
 // パーツを直接ドラッグ
 function partDown(x,y,e){
+  if(vtxMode)return vtxDown(x,y,e);
   const h=pickPart(x,y);
   if(!h)return false;
   const u=unitOf(h.mesh);
@@ -663,6 +673,7 @@ function partDown(x,y,e){
 }
 const AX={x:new THREE.Vector3(1,0,0),y:new THREE.Vector3(0,1,0),z:new THREE.Vector3(0,0,1)};
 function partMove(x,y,e){
+  if(vtxMode)return vtxMove(x,y,e);
   if(!grab)return false;
   const o=grab.obj, st=step.get(o);
   if(grab.mode==='translate'){
@@ -684,11 +695,13 @@ function partMove(x,y,e){
   return true;
 }
 function partUp(){
+  if(vtxMode){vtxUp();return;}
   if(!grab)return;
   endStep();
   grab=null; canvas.style.cursor='';
 }
 function partHover(x,y){
+  if(vtxMode){canvas.style.cursor=vtxPick(x,y)>=0?'pointer':'';return;}
   if(tc.axis){canvas.style.cursor='';return;}
   canvas.style.cursor=pickPart(x,y)?'grab':'';
 }
@@ -709,8 +722,9 @@ function offsets(){
     const col=colorOf(m);
     const color=col&&col!==hex(m.userData.origMat.color)?col:null;
     const copy=m.userData.isCopy?{copyOf:m.userData.copySrc}:{};
-    if(!copy.copyOf&&d.lengthSq()<1e-6&&rot.every(v=>v===0)&&sc.every(v=>v===1)&&!color)return;
-    out.push({name:m.name,no:m.userData.no||0,...copy,dx:r2(d.x),dy:r2(d.y),dz:r2(d.z),rx:rot[0],ry:rot[1],rz:rot[2],sx:sc[0],sy:sc[1],sz:sc[2],...(color?{color}:{})});
+    const verts=vertsDiff(m);
+    if(!copy.copyOf&&d.lengthSq()<1e-6&&rot.every(v=>v===0)&&sc.every(v=>v===1)&&!color&&!verts)return;
+    out.push({name:m.name,no:m.userData.no||0,...copy,dx:r2(d.x),dy:r2(d.y),dz:r2(d.z),rx:rot[0],ry:rot[1],rz:rot[2],sx:sc[0],sy:sc[1],sz:sc[2],...(color?{color}:{}),...(verts?{verts}:{})});
   });
   return out;
 }
@@ -720,7 +734,8 @@ function updateDragList(){
     ?o.map(e=>e.removed?`${e.name}${e.no?' #'+e.no:''}: 削除`:`${e.copyOf?'＋':''}${e.name}${e.no?' #'+e.no:''}${e.copyOf?'（'+e.copyOf+' の複製）':''}: ${e.dx}, ${e.dy}, ${e.dz}`
       +((e.rx||e.ry||e.rz)?` / ${e.rx}°, ${e.ry}°, ${e.rz}°`:'')
       +((e.sx!==1||e.sy!==1||e.sz!==1)?` / ×${e.sx}, ${e.sy}, ${e.sz}`:'')
-      +(e.color?` / <span style="color:${e.color}">■</span>${e.color}`:'')).join('<br>')
+      +(e.color?` / <span style="color:${e.color}">■</span>${e.color}`:'')
+      +(e.verts?` / 頂点 ${e.verts.length} 個`:'')).join('<br>')
     :'<span style="color:#ccc">（なし）</span>';
   logToggle.textContent=`${logBody.hidden?'▸':'▾'} 動かしたパーツ（${o.length}）`;
 }
@@ -733,6 +748,7 @@ function undo(){
   if(h.undo)h.undo();
   else h.list.forEach(([o,p,q,s])=>{o.position.copy(p);o.quaternion.copy(q);o.scale.copy(s);});
   showBoxes(); updateDragList(); updateHUD();
+  if(vtxMode){vtxRefresh();vtxPlacePivot();}
 }
 document.getElementById('drag-undo').addEventListener('click',undo);
 // 全部戻す：グループをすべて解除してから、パーツを元の変形に戻す
@@ -740,7 +756,7 @@ document.getElementById('drag-reset').addEventListener('click',()=>{
   selectParts([]);
   allMeshes.forEach(r=>{if(r.isGroup)resetStructure(r);});
   origLocal.forEach((o,m)=>{m.position.copy(o.pos);m.quaternion.copy(o.quat);m.scale.copy(o.scale);});
-  orig.forEach((o,m)=>resetPartColor(m));
+  orig.forEach((o,m)=>{resetPartColor(m);resetPartGeo(m);});
   history.length=0; updateHUD(); showBoxes(); updateDragList();
 });
 mirBtn.addEventListener('click',()=>{
@@ -748,6 +764,7 @@ mirBtn.addEventListener('click',()=>{
   mirBtn.textContent=mirrorOn?'↔ 左右対称 ON':'↔ 左右対称 OFF';
   mirBtn.classList.toggle('on',mirrorOn);
   showBoxes(); markHUD();
+  if(vtxMode)vtxSelect([],true);
 });
 function setMode(m){
   mode=m;
@@ -758,6 +775,13 @@ Object.entries(modeBtns).forEach(([k,b])=>b.addEventListener('click',()=>setMode
 window.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
   const k=e.key.toLowerCase();
+  if(e.key==='Tab'||(k==='v'&&!e.metaKey&&!e.ctrlKey&&!e.altKey)){e.preventDefault();setVtxMode(!vtxMode);return;}
+  if(vtxMode){
+    // 頂点編集中はパーツの複製・削除・グループ化をしない
+    if(e.key==='Delete'||e.key==='Backspace'||((e.metaKey||e.ctrlKey)&&(k==='d'||k==='g'))){e.preventDefault();return;}
+    if(k==='a'&&!e.metaKey&&!e.ctrlKey){e.preventDefault();vtxSelect(vSel.size===vPts.length?[]:vPts.map((_,i)=>i));return;}
+    if(e.key==='Escape'){if(vSel.size)vtxSelect([]);else setVtxMode(false);return;}
+  }
   if((e.metaKey||e.ctrlKey)&&k==='g'){e.preventDefault();if(e.shiftKey)ungroupSelected();else groupSelected();return;}
   if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();undo();return;}
   if((e.metaKey||e.ctrlKey)&&k==='s'){e.preventDefault();saveLayout();return;}
@@ -815,6 +839,270 @@ colorInput.addEventListener('change',()=>{
   history.push({undo:()=>{prev.forEach(([m,c])=>c?setPartColor(m,c):resetPartColor(m));updateColorInput();}});
 });
 
+// ===== 頂点編集 =====
+// 選んだパーツ（グループなら中のパーツ全部）の頂点を点で出し、選んで動かす・回す・拡大縮小する
+// 同じ位置にある頂点（面の境目で分かれているもの）はひとつの点にまとめて一緒に動かす
+// ジオメトリはほかのパーツや複製と共有しているので、はじめて動かすときにそのパーツ用に複製する（userData.origGeo に元のジオメトリ。輪郭線が同じジオメトリを使っていれば一緒に差し替える）
+// 左右対称 ON：root の座標で x を反転した所にある頂点（同じパーツの中か、鏡写しの相手のパーツの中）も鏡写しに動かす。x=0 の頂点は左右に動かさない
+// 法線は動かすたびに計算し直す（もとは同じ向きだった、同じ位置の頂点どうしはなめらかにつなぐ）
+// 動かした頂点は保存・JSON とずれの一覧に「パーツの座標での新しい位置」[番号, x, y, z] で入る
+const vtxBtn=document.getElementById('mode-vertex');
+const boxSelEl=document.getElementById('box-sel');
+let vtxMode=false, vTargets=[], vPts=[], vSel=new Set(), vMir=new Set(), vStart=null, vDrag=null, vBox=null;
+const vPivot=new THREE.Object3D(); scene.add(vPivot);
+const vPoints=new THREE.Points(new THREE.BufferGeometry(),new THREE.PointsMaterial({size:8,sizeAttenuation:false,vertexColors:true,depthTest:false,transparent:true}));
+vPoints.renderOrder=999; vPoints.frustumCulled=false; vPoints.visible=false; scene.add(vPoints);
+const C_PT=new THREE.Color(0x1d2b3a), C_SEL=new THREE.Color(0xff5a00), C_MIR=new THREE.Color(0xffb27a);
+const MIR_V_TOL=0.02;
+const _v=new THREE.Vector3();
+const hasPos=m=>m.geometry&&m.geometry.attributes&&m.geometry.attributes.position;
+const ptWorld=(m,i,out=new THREE.Vector3())=>out.fromBufferAttribute(m.geometry.attributes.position,i).applyMatrix4(m.matrixWorld);
+// 同じ位置の頂点をまとめる（元の形で決めて、動かしても変えない）
+const weldCache=new Map();
+function weldOf(m){
+  if(weldCache.has(m))return weldCache.get(m);
+  const pa=(m.userData.origGeo||m.geometry).attributes.position, map=new Map();
+  for(let i=0;i<pa.count;i++){
+    const k=pa.getX(i).toFixed(4)+','+pa.getY(i).toFixed(4)+','+pa.getZ(i).toFixed(4);
+    if(!map.has(k))map.set(k,[]);
+    map.get(k).push(i);
+  }
+  const gs=[...map.values()]; weldCache.set(m,gs); return gs;
+}
+function ensureOwnGeo(m){
+  if(m.userData.origGeo)return;
+  const g0=m.geometry; m.userData.origGeo=g0; m.geometry=g0.clone();
+  m.children.forEach(c=>{if(c.userData.outline&&c.geometry===g0)c.geometry=m.geometry;});
+}
+function resetPartGeo(m){
+  const g0=m.userData.origGeo; if(!g0)return;
+  const g=m.geometry;
+  m.children.forEach(c=>{if(c.userData.outline&&c.geometry===g)c.geometry=g0;});
+  m.geometry=g0; g.dispose(); delete m.userData.origGeo;
+}
+function fixNormals(m){
+  const g=m.geometry, na=g.attributes.normal, n0=m.userData.origGeo&&m.userData.origGeo.attributes.normal;
+  if(!na)return;
+  g.computeVertexNormals();
+  if(!n0)return;
+  const a=new THREE.Vector3(), b=new THREE.Vector3(), s=new THREE.Vector3(), out=[];
+  weldOf(m).forEach(idx=>{
+    if(idx.length<2)return;
+    idx.forEach(i=>{
+      a.fromBufferAttribute(n0,i); s.set(0,0,0);
+      idx.forEach(j=>{if(a.dot(b.fromBufferAttribute(n0,j))>0.7)s.add(b.fromBufferAttribute(na,j));});
+      if(s.lengthSq()>0)out.push([i,s.normalize().clone()]);
+    });
+  });
+  out.forEach(([i,n])=>na.setXYZ(i,n.x,n.y,n.z));
+  na.needsUpdate=true;
+}
+function geoChanged(m){
+  const g=m.geometry;
+  g.attributes.position.needsUpdate=true;
+  fixNormals(m);
+  g.computeBoundingBox(); g.computeBoundingSphere();
+}
+const r4=v=>Math.round(v*1e4)/1e4;
+// 元の形から変わった頂点 [[番号, x, y, z], ...]（変わっていなければ null）
+function vertsDiff(m){
+  const g0=m.userData.origGeo; if(!g0)return null;
+  const a=g0.attributes.position.array, b=m.geometry.attributes.position.array, out=[];
+  for(let i=0;i<a.length;i+=3)
+    if(Math.abs(a[i]-b[i])>1e-5||Math.abs(a[i+1]-b[i+1])>1e-5||Math.abs(a[i+2]-b[i+2])>1e-5)out.push([i/3,r4(b[i]),r4(b[i+1]),r4(b[i+2])]);
+  return out.length?out:null;
+}
+function setPartVerts(m,list){
+  ensureOwnGeo(m);
+  const pa=m.geometry.attributes.position;
+  pa.array.set(m.userData.origGeo.attributes.position.array);
+  list.forEach(([i,x,y,z])=>{if(i<pa.count)pa.setXYZ(i,x,y,z);});
+  geoChanged(m);
+}
+function setPt(m,idx,w){
+  const l=w.clone().applyMatrix4(new THREE.Matrix4().copy(m.matrixWorld).invert());
+  const pa=m.geometry.attributes.position;
+  idx.forEach(i=>pa.setXYZ(i,l.x,l.y,l.z));
+}
+
+// 鏡写しの相手の頂点：{m, idx, pi}（pi は点の番号。出していないパーツなら -1）、x=0 の頂点は 'self'、なければ null
+function vtxPartner(p){
+  const lm=leafMirror(p.m); if(!lm)return null;
+  const mm=lm==='self'?p.m:lm; if(!rootOf(mm))return null;
+  const r=rootOf(p.m); r.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(r.matrixWorld).invert();
+  const P=ptWorld(p.m,p.idx[0]).applyMatrix4(inv); P.x=-P.x;
+  let best=null, bd=MIR_V_TOL;
+  weldOf(mm).forEach(idx=>{const d=ptWorld(mm,idx[0],_v).applyMatrix4(inv).distanceTo(P);if(d<bd){bd=d;best=idx;}});
+  if(!best)return null;
+  if(best===p.idx)return 'self';
+  return {m:mm,idx:best,pi:vPts.findIndex(q=>q.idx===best)};
+}
+
+// 出す点を選んでいるパーツに合わせる（同じパーツのままなら頂点の選択はそのまま）
+function vtxRetarget(){
+  const t=[...new Set(sels.flatMap(leavesOf))].filter(hasPos);
+  const same=t.length===vTargets.length&&t.every((m,i)=>m===vTargets[i]);
+  if(!same){
+    vTargets=t; t.forEach(ensureOrig);
+    vPts=t.flatMap(m=>weldOf(m).map(idx=>({m,idx})));
+    vSel=new Set(); vMir=new Set();
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(vPts.length*3),3));
+    g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(vPts.length*3),3));
+    vPoints.geometry.dispose(); vPoints.geometry=g;
+  }
+  vtxRefresh(); vtxPlacePivot();
+}
+function vtxRefresh(){
+  scene.updateMatrixWorld(true);
+  const pa=vPoints.geometry.attributes.position, ca=vPoints.geometry.attributes.color;
+  if(!pa)return;
+  vPts.forEach((p,i)=>{
+    ptWorld(p.m,p.idx[0],_v); pa.setXYZ(i,_v.x,_v.y,_v.z);
+    const c=vSel.has(i)?C_SEL:vMir.has(i)?C_MIR:C_PT; ca.setXYZ(i,c.r,c.g,c.b);
+  });
+  pa.needsUpdate=ca.needsUpdate=true;
+  vPoints.geometry.computeBoundingSphere();
+  showBoxes();
+}
+function vtxSelect(list,add){
+  if(!add)vSel=new Set();
+  list.forEach(i=>vSel.add(i));
+  vMir=new Set();
+  if(mirrorOn)vSel.forEach(i=>{const q=vtxPartner(vPts[i]);if(q&&q!=='self'&&q.pi>=0&&!vSel.has(q.pi))vMir.add(q.pi);});
+  vtxRefresh(); vtxPlacePivot();
+}
+// ギズモは選んだ頂点のまんなかに置いた空のもの（vPivot）につける
+function vtxPlacePivot(){
+  if(!vtxMode||!vSel.size){if(tc.object===vPivot||vtxMode)tc.detach();return;}
+  const c=new THREE.Vector3();
+  vSel.forEach(i=>c.add(ptWorld(vPts[i].m,vPts[i].idx[0],_v)));
+  vPivot.position.copy(c.divideScalar(vSel.size)); vPivot.quaternion.identity(); vPivot.scale.set(1,1,1);
+  vPivot.updateMatrixWorld(true);
+  if(tc.object!==vPivot)tc.attach(vPivot);
+  tc.setMode(mode); tc.setSpace(mode==='scale'?'local':'world');
+}
+// 動かし始め：選んだ頂点の元の位置と鏡写しの相手を覚える
+function vtxBegin(){
+  if(!vSel.size){vStart=null;return;}
+  scene.updateMatrixWorld(true);
+  const items=[], meshes=new Set();
+  vSel.forEach(i=>{
+    const p=vPts[i], it={m:p.m,idx:p.idx,w0:ptWorld(p.m,p.idx[0]),mir:null,lockX:false};
+    if(mirrorOn){
+      const q=vtxPartner(p);
+      if(q==='self'){it.lockX=true;it.x0=it.w0.clone().applyMatrix4(new THREE.Matrix4().copy(rootOf(p.m).matrixWorld).invert()).x;}
+      else if(q&&!(q.pi>=0&&vSel.has(q.pi))){it.mir=q;meshes.add(q.m);}
+    }
+    items.push(it); meshes.add(p.m);
+  });
+  meshes.forEach(ensureOwnGeo);
+  const snap=[...meshes].map(m=>[m,m.geometry.attributes.position.array.slice()]);
+  vStart={pivInv:vPivot.matrixWorld.clone().invert(),items,snap};
+}
+// ギズモの動き（始めたときからの変化）を選んだ頂点に写す
+function vtxApply(){
+  if(!vStart)return;
+  vPivot.updateMatrixWorld(true);
+  const D=new THREE.Matrix4().multiplyMatrices(vPivot.matrixWorld,vStart.pivInv);
+  const changed=new Set();
+  vStart.items.forEach(it=>{
+    const w=it.w0.clone().applyMatrix4(D);
+    if(it.lockX||it.mir){
+      const rm=rootOf(it.m).matrixWorld, P=w.clone().applyMatrix4(new THREE.Matrix4().copy(rm).invert());
+      if(it.lockX){P.x=it.x0;w.copy(P).applyMatrix4(rm);}
+      else{P.x=-P.x;setPt(it.mir.m,it.mir.idx,P.applyMatrix4(rm));changed.add(it.mir.m);}
+    }
+    setPt(it.m,it.idx,w); changed.add(it.m);
+  });
+  changed.forEach(geoChanged);
+  vtxRefresh();
+}
+function vtxEnd(){
+  if(!vStart)return;
+  const snap=vStart.snap; vStart=null;
+  const diff=snap.filter(([m,a])=>{const b=m.geometry.attributes.position.array;for(let i=0;i<a.length;i++)if(a[i]!==b[i])return true;return false;});
+  if(diff.length)history.push({undo:()=>{diff.forEach(([m,a])=>{ensureOwnGeo(m);m.geometry.attributes.position.array.set(a);geoChanged(m);});}});
+  vtxPlacePivot(); updateDragList();
+}
+// 画面の点を選ぶ：カーソルから 10px 以内で、ほぼ同じ近さなら手前のもの
+function vtxPick(x,y){
+  const pa=vPoints.geometry.attributes.position; if(!pa)return -1;
+  const r=canvas.getBoundingClientRect(), cand=[];
+  for(let i=0;i<pa.count;i++){
+    _v.fromBufferAttribute(pa,i).project(camera);
+    if(_v.z>1||_v.z<-1)continue;
+    const d=Math.hypot((_v.x+1)/2*r.width+r.left-x,(1-_v.y)/2*r.height+r.top-y);
+    if(d<10)cand.push([i,d,_v.z]);
+  }
+  if(!cand.length)return -1;
+  const md=Math.min(...cand.map(c=>c[1]));
+  return cand.filter(c=>c[1]<md+4).sort((a,b)=>a[2]-b[2])[0][0];
+}
+function vtxDown(x,y,e){
+  const i=vtxPick(x,y), add=e.shiftKey||e.metaKey||e.ctrlKey;
+  if(i<0){
+    if(!add)return false;   // 空いている所：ふつうは視点を回す、Shift などを押していれば囲んで選ぶ
+    vBox={x0:x,y0:y,x1:x,y1:y}; drawBox(); return true;
+  }
+  if(add&&vSel.has(i)){vSel.delete(i);vtxSelect([],true);return true;}
+  if(!vSel.has(i))vtxSelect([i],add);
+  vtxBegin();
+  const hw=new THREE.Vector3().fromBufferAttribute(vPoints.geometry.attributes.position,i);
+  const n=new THREE.Vector3(); camera.getWorldDirection(n);
+  dragPlane.setFromNormalAndCoplanarPoint(n,hw);
+  vDrag={hw,p0:vPivot.position.clone()};
+  canvas.style.cursor='grabbing';
+  return true;
+}
+function vtxMove(x,y,e){
+  if(vBox){vBox.x1=x;vBox.y1=y;drawBox();return true;}
+  if(!vDrag)return false;
+  castAt(x,y);
+  if(!ray.ray.intersectPlane(dragPlane,hitP))return true;
+  const d=hitP.clone().sub(vDrag.hw);
+  if(e.shiftKey){d.x=0;d.z=0;}   // 途中から Shift で上下だけ
+  vPivot.position.copy(vDrag.p0).add(d);
+  vtxApply();
+  return true;
+}
+function vtxUp(){
+  if(vBox){
+    const r=canvas.getBoundingClientRect(), pa=vPoints.geometry.attributes.position, hit=[];
+    const x0=Math.min(vBox.x0,vBox.x1), x1=Math.max(vBox.x0,vBox.x1), y0=Math.min(vBox.y0,vBox.y1), y1=Math.max(vBox.y0,vBox.y1);
+    for(let i=0;i<pa.count;i++){
+      _v.fromBufferAttribute(pa,i).project(camera);
+      if(_v.z>1||_v.z<-1)continue;
+      const sx=(_v.x+1)/2*r.width+r.left, sy=(1-_v.y)/2*r.height+r.top;
+      if(sx>=x0&&sx<=x1&&sy>=y0&&sy<=y1)hit.push(i);
+    }
+    vBox=null; boxSelEl.hidden=true;
+    vtxSelect(hit,true);
+    return;
+  }
+  if(vDrag){vDrag=null;vtxEnd();canvas.style.cursor='';}
+}
+function drawBox(){
+  const w=wrap.getBoundingClientRect();
+  Object.assign(boxSelEl.style,{left:Math.min(vBox.x0,vBox.x1)-w.left+'px',top:Math.min(vBox.y0,vBox.y1)-w.top+'px',width:Math.abs(vBox.x1-vBox.x0)+'px',height:Math.abs(vBox.y1-vBox.y0)+'px'});
+  boxSelEl.hidden=false;
+}
+function setVtxMode(on){
+  if(on===vtxMode)return;
+  if(on){
+    if(!sels.flatMap(leavesOf).some(hasPos)){showSaveStatus('先に頂点を動かすパーツを選んでください');return;}
+    vtxMode=true; vTargets=[]; tc.detach(); vPoints.visible=true;
+    vtxRetarget();
+  }else{
+    vtxMode=false; vPoints.visible=false;
+    vTargets=[]; vPts=[]; vSel=new Set(); vMir=new Set(); vStart=vDrag=vBox=null; boxSelEl.hidden=true;
+    tc.detach(); selectParts(sels);
+  }
+  vtxBtn.classList.toggle('on',vtxMode);
+}
+vtxBtn.addEventListener('click',()=>setVtxMode(!vtxMode));
+
 // ===== 配置の保存（ブラウザの localStorage） =====
 // 保存するもの：作ったグループ（親・位置・向き・倍率・鏡写しの相手）と、パーツの親・位置・向き・倍率・変えた色
 // もともとあるグループ（自分で作ったのではないもの）は位置・向き・倍率だけ保存する
@@ -838,7 +1126,7 @@ function layoutData(){
         const mir=c.userData.mirror;
         groups.push({name:c.name,parent,mirror:mir==='self'?'self':mir?mir.name:null,...tfOut(c)});
       }else if(c.isMesh){
-        parts.push({key:partKey(c),parent,color:colorOf(c),...tfOut(c)});
+        parts.push({key:partKey(c),parent,color:colorOf(c),verts:vertsDiff(c),...tfOut(c)});
         if(c.userData.isCopy){const ml=c.userData.mirrorLeaf;copies.push({key:partKey(c),name:c.name,no:c.userData.no,src:c.userData.copySrc,mirror:ml==='self'?'self':ml?partKey(ml):null});}
       }else if(c.isGroup){
         nodes.push({name:c.name,...tfOut(c)});
@@ -917,6 +1205,7 @@ function applyLayout(data){
       if(m.parent!==parent)parent.add(m);
       tfIn(m,pd);
       if(pd.color)setPartColor(m,pd.color);else resetPartColor(m);
+      if(pd.verts)setPartVerts(m,pd.verts);else resetPartGeo(m);
     });
     // 削除したものを外す
     (d.removed||[]).forEach(k=>{const m=origLeaves[k];if(m&&m.parent)trashObj(m,r);});
